@@ -10,6 +10,12 @@ import { FiEdit2, FiHeart, FiPlus, FiX, FiChevronDown, FiChevronRight, FiMonitor
 import { HiHeart } from 'react-icons/hi';
 import { useDialog } from '@/app/components/GlobalDialog';
 import { useFavorites } from '@/store/useFavorites';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // Define types for our components
 type ComponentType = 'gpu' | 'cpu' | 'motherboard' | 'ram';
@@ -79,11 +85,11 @@ type BudgetRange = {
 };
 
 const BUDGET_RANGES: BudgetRange[] = [
-  { label: 'Budget Build (Below ₹50,000)', value: 50000 },
-  { label: 'Mid Range (Below ₹1,00,000)', value: 100000 },
-  { label: 'High End (Below ₹1,50,000)', value: 150000 },
-  { label: 'Premium (Below ₹2,00,000)', value: 200000 },
-  { label: 'Ultra Premium (₹2,00,000+)', value: 250000 },
+  { label: 'Budget Build (Below ₹75,000)', value: 75000 },
+  { label: 'Mid Range (Below ₹1,50,000)', value: 150000 },
+  { label: 'High End (Below ₹2,50,000)', value: 250000 },
+  { label: 'Premium (Below ₹3,50,000)', value: 350000 },
+  { label: 'Ultra Premium (₹3,50,000+)', value: 500000 },
 ];
 
 const MIN_BUDGET = 5000;  // Add this constant at the top with other constants
@@ -102,8 +108,8 @@ const BUILD_PURPOSES: BuildPurpose[] = [
     id: 'gaming',
     name: 'Gaming Build',
     description: 'For high-performance gaming and streaming',
-    minBudget: 35000,
-    maxBudget: 200000,
+    minBudget: 75000,
+    maxBudget: 500000,
     icon: <FiPlay className="w-5 h-5" /> // You'll need to import FiPlay
   },
   {
@@ -134,15 +140,15 @@ const BUILD_PURPOSES: BuildPurpose[] = [
 
 // Add this near your other constants
 const CUSTOM_BUDGET_CHIPS = [
-  { value: 45000, label: '₹45,000' },
-  { value: 70000, label: '₹70,000' },
-  { value: 85000, label: '₹85,000' },
-  { value: 110000, label: '₹1,10,000' },
-  { value: 125000, label: '₹1,25,000' },
+  { value: 75000, label: '₹75,000' },
+  { value: 100000, label: '₹1,00,000' },
   { value: 150000, label: '₹1,50,000' },
-  { value: 175000, label: '₹1,75,000' },
   { value: 200000, label: '₹2,00,000' },
   { value: 250000, label: '₹2,50,000' },
+  { value: 300000, label: '₹3,00,000' },
+  { value: 350000, label: '₹3,50,000' },
+  { value: 400000, label: '₹4,00,000' },
+  { value: 500000, label: '₹5,00,000' },
 ];
 
 // Add this constant for flexibility options
@@ -179,10 +185,34 @@ type ComponentRecommendation = {
 // Add recommended component allocations for each build purpose
 const PURPOSE_RECOMMENDATIONS: Record<string, ComponentRecommendation[]> = {
   gaming: [
-    { type: 'gpu', minPrice: 35000, maxPrice: 50000, percentage: 40, priority: 1 }, // 40% of budget
-    { type: 'cpu', minPrice: 20000, maxPrice: 35000, percentage: 25, priority: 2 }, // 25% of budget
-    { type: 'motherboard', minPrice: 8000, maxPrice: 15000, percentage: 15, priority: 3 }, // 15% of budget
-    { type: 'ram', minPrice: 5000, maxPrice: 10000, percentage: 10, priority: 4 }, // 10% of budget
+    { 
+      type: 'gpu', 
+      minPrice: 50000,    // Updated minimum price
+      maxPrice: 200000,   // Updated maximum price for high-end GPUs
+      percentage: 40,     // 40% of budget
+      priority: 1 
+    },
+    { 
+      type: 'cpu', 
+      minPrice: 30000,    // Updated for better CPUs
+      maxPrice: 100000,   // Updated for high-end CPUs
+      percentage: 25, 
+      priority: 2 
+    },
+    { 
+      type: 'motherboard', 
+      minPrice: 15000,    // Updated for better motherboards
+      maxPrice: 50000,    // Updated for high-end motherboards
+      percentage: 20, 
+      priority: 3 
+    },
+    { 
+      type: 'ram', 
+      minPrice: 10000,    // Updated for better RAM
+      maxPrice: 40000,    // Updated for high-end RAM
+      percentage: 15, 
+      priority: 4 
+    },
   ],
   casual: [
     { type: 'cpu', minPrice: 15000, maxPrice: 25000, percentage: 35, priority: 1 },
@@ -337,35 +367,37 @@ const checkCompatibility = (build: PCBuild): ComponentNode[] => {
 // Update the CompatibilityTree component
 const CompatibilityTree = ({ nodes }: { nodes: ComponentNode[] }) => {
   return (
-    <div className="absolute left-0 top-0 h-full w-8 flex flex-col items-center">
-      {nodes.map((node, index) => (
-        <div key={node.type} className="flex-1 relative w-full group">
-          {/* Vertical line */}
-          <div 
-            className={`absolute left-1/2 w-0.5 h-full transform -translate-x-1/2
-              ${node.status === 'compatible' ? 'bg-green-500' : 
-                node.status === 'incompatible' ? 'bg-red-500' : 
-                node.status === 'pending' ? 'bg-yellow-500' : 
-                'bg-gray-600'}`}
-          />
-          
-          {/* Node circle with tooltip */}
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+    <TooltipProvider>
+      <div className="absolute left-0 top-0 h-full w-8 flex flex-col items-center">
+        {nodes.map((node, index) => (
+          <div key={node.type} className="flex-1 relative w-full">
+            {/* Vertical line */}
             <div 
-              className={`w-3 h-3 rounded-full
+              className={`absolute left-1/2 w-0.5 h-full transform -translate-x-1/2
                 ${node.status === 'compatible' ? 'bg-green-500' : 
                   node.status === 'incompatible' ? 'bg-red-500' : 
                   node.status === 'pending' ? 'bg-yellow-500' : 
-                  'bg-gray-600'}
-                ${node.message ? 'cursor-help' : ''}
-              `}
+                  'bg-gray-600'}`}
             />
             
-            {/* Tooltip */}
-            {node.message && (
-              <div className="absolute left-8 top-1/2 transform -translate-y-1/2 
-                pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity
-                bg-gray-900 text-white text-xs rounded px-2 py-1 w-48 z-50">
+            {/* Node circle with tooltip */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <div 
+                    className={`w-3 h-3 rounded-full cursor-help
+                      ${node.status === 'compatible' ? 'bg-green-500' : 
+                        node.status === 'incompatible' ? 'bg-red-500' : 
+                        node.status === 'pending' ? 'bg-yellow-500' : 
+                        'bg-gray-600'}
+                    `}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent 
+                side="left"
+                className="bg-gray-900 text-white border-gray-700 z-[99999999]"
+              >
                 <div className="flex items-start gap-2">
                   <span className={`
                     w-2 h-2 rounded-full flex-shrink-0 mt-1
@@ -376,33 +408,48 @@ const CompatibilityTree = ({ nodes }: { nodes: ComponentNode[] }) => {
                   `}/>
                   <span>{node.message}</span>
                 </div>
-              </div>
-            )}
-          </div>
+              </TooltipContent>
+            </Tooltip>
 
-          {/* Dependency lines */}
-          {node.dependencies.map(dep => {
-            const depIndex = nodes.findIndex(n => n.type === dep);
-            if (depIndex === -1) return null;
-            
-            return (
-              <div
-                key={`${node.type}-${dep}`}
-                className={`absolute left-1/2 w-4 border-t transform -translate-y-1/2
-                  ${node.status === 'compatible' ? 'border-green-500' : 
-                    node.status === 'incompatible' ? 'border-red-500' : 
-                    node.status === 'pending' ? 'border-yellow-500' : 
-                    'border-gray-600'}`}
-                style={{
-                  top: `${(depIndex - index) * 100}%`
-                }}
-              />
-            );
-          })}
-        </div>
-      ))}
-    </div>
+            {/* Dependency lines */}
+            {node.dependencies.map(dep => {
+              const depIndex = nodes.findIndex(n => n.type === dep);
+              if (depIndex === -1) return null;
+              
+              return (
+                <div
+                  key={`${node.type}-${dep}`}
+                  className={`absolute left-1/2 w-4 border-t transform -translate-y-1/2
+                    ${node.status === 'compatible' ? 'border-green-500' : 
+                      node.status === 'incompatible' ? 'border-red-500' : 
+                      node.status === 'pending' ? 'border-yellow-500' : 
+                      'border-gray-600'}`}
+                  style={{
+                    top: `${(depIndex - index) * 100}%`
+                  }}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </TooltipProvider>
   );
+};
+
+// First, add this helper function near your other utility functions
+const getRecommendationMatch = (component: PCComponent, build: PCBuild): number | null => {
+  const recommendation = PURPOSE_RECOMMENDATIONS[build.purpose]?.find(
+    rec => rec.type === component.type
+  );
+  
+  if (!recommendation) return null;
+
+  const targetPrice = (build.budget * recommendation.percentage) / 100;
+  const priceDiff = Math.abs(component.price - targetPrice);
+  const matchPercentage = Math.max(0, 100 - (priceDiff / targetPrice * 100));
+  
+  return Math.round(matchPercentage);
 };
 
 export default function PcBuilderScreen() {
@@ -1070,18 +1117,24 @@ export default function PcBuilderScreen() {
                                   index={index}
                                 >
                                   {(provided) => {
-                                    const isRecommended = builds.some(build => {
-                                      const compatibilityNodes = checkCompatibility(build);
-                                      const isCompatible = compatibilityNodes.some(node => 
-                                        build.components[node.type]?.id === component.id && 
-                                        node.status === 'compatible'
-                                      );
-                                      
-                                      const recommendations = getRecommendedComponents(build);
-                                      return isCompatible && recommendations.some(rec => 
-                                        rec.components.some((c: PCComponent) => c.id === component.id)
-                                      );
-                                    });
+                                    // Calculate recommendation status for all builds
+                                    const recommendations = builds.map(build => {
+                                      const match = getRecommendationMatch(component, build);
+                                      return {
+                                        buildName: build.name,
+                                        match: match,
+                                        isCompatible: checkCompatibility(build).some(node => 
+                                          node.type === component.type && 
+                                          node.status === 'compatible'
+                                        )
+                                      };
+                                    }).filter(rec => rec.match && rec.match > 70); // Only consider matches above 70%
+
+                                    const bestMatch = recommendations.length > 0 ? 
+                                      Math.max(...recommendations.map(r => r.match || 0)) : 
+                                      null;
+
+                                    const isRecommended = recommendations.length > 0;
 
                                     return (
                                       <div
@@ -1089,18 +1142,26 @@ export default function PcBuilderScreen() {
                                         {...provided.draggableProps}
                                         {...provided.dragHandleProps}
                                         className={`bg-[#374151] p-3 rounded-lg relative group transition-all hover:shadow-lg hover:bg-[#3D4759]
-                                          ${isRecommended ? 'ring-1 ring-green-500 dark:ring-green-400' : ''}
+                                          ${isRecommended ? 
+                                            'ring-2 ring-green-500/50 dark:ring-green-400/50 shadow-[0_0_10px_rgba(34,197,94,0.2)] dark:shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 
+                                            'hover:shadow-black/5'
+                                          }
                                         `}
                                       >
                                         {isRecommended && (
-                                          <div className="absolute -top-2 -right-2 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                                            Recommended
-                                          </div>
+                                          <>
+                                            <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-green-400/5 rounded-lg" />
+                                            <div className="absolute -top-2 -right-2 flex items-center gap-1 bg-gradient-to-r from-green-500 to-green-400 text-white text-[10px] px-2 py-1 rounded-full shadow-lg z-10">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                                              Recommended
+                                            </div>
+                                          </>
                                         )}
                                         
-                                        <div className="flex gap-3">
-                                          {/* Image Container - Made smaller */}
-                                          <div className="w-16 h-16 relative bg-[#2D3748] rounded-lg p-1.5 flex items-center justify-center flex-shrink-0">
+                                        <div className="flex gap-3 relative z-[1]">
+                                          <div className={`w-16 h-16 relative bg-[#2D3748] rounded-lg p-1.5 flex items-center justify-center flex-shrink-0
+                                            ${isRecommended ? 'ring-1 ring-green-500/20' : ''}
+                                          `}>
                                             <Image
                                               src={component.image || '/images/placeholder.jpg'}
                                               alt={component.name}
@@ -1109,27 +1170,27 @@ export default function PcBuilderScreen() {
                                             />
                                           </div>
 
-                                          {/* Content Container */}
                                           <div className="flex-1">
                                             <div className="flex justify-between items-start gap-2">
                                               <div className="flex-1">
-                                                {/* Component Type Badge */}
-                                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 mb-1 inline-block">
+                                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full mb-1 inline-block
+                                                  ${isRecommended ? 
+                                                    'bg-green-500/10 text-green-400' : 
+                                                    'bg-blue-500/10 text-blue-400'
+                                                  }`}
+                                                >
                                                   {COMPONENT_DISPLAY_NAMES[component.type]}
                                                 </span>
                                                 
-                                                {/* Component Name */}
                                                 <h3 className="font-medium text-white text-sm leading-tight mb-0.5 break-words">
                                                   {component.name}
                                                 </h3>
                                                 
-                                                {/* Company Name */}
                                                 <p className="text-xs text-gray-400 mb-1">
                                                   by {component.company}
                                                 </p>
                                               </div>
 
-                                              {/* Favorite Button */}
                                               <button
                                                 onClick={() => toggleFavorite(component)}
                                                 className={`p-1.5 rounded-full transition-all transform hover:scale-110 flex-shrink-0
@@ -1146,7 +1207,6 @@ export default function PcBuilderScreen() {
                                               </button>
                                             </div>
 
-                                            {/* Price Section */}
                                             <div className="flex items-baseline gap-1">
                                               <span className="text-base font-bold text-white">
                                                 ₹{Math.floor(component.price).toLocaleString()}
@@ -1156,11 +1216,16 @@ export default function PcBuilderScreen() {
                                               </span>
                                             </div>
 
-                                            {isRecommended && (
-                                              <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
-                                                Perfect match
-                                              </p>
+                                            {isRecommended && bestMatch && (
+                                              <div className="flex items-center gap-2 mt-2">
+                                                <div className="flex-1 h-1 rounded-full bg-gray-700 overflow-hidden">
+                                                  <div 
+                                                    className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full"
+                                                    style={{ width: `${bestMatch}%` }}
+                                                  />
+                                                </div>
+                                                <span className="text-xs text-green-400">{bestMatch}% match</span>
+                                              </div>
                                             )}
                                           </div>
                                         </div>
@@ -1207,7 +1272,6 @@ export default function PcBuilderScreen() {
                               className="bg-gray-700 p-3 rounded-lg relative group hover:bg-gray-600 transition-all"
                             >
                               <div className="flex gap-3">
-                                {/* Image Container */}
                                 <div className="w-14 h-14 relative bg-gray-800 rounded-lg p-1.5 flex items-center justify-center flex-shrink-0">
                                   <Image
                                     src={component.image || '/images/placeholder.jpg'}
@@ -1217,7 +1281,6 @@ export default function PcBuilderScreen() {
                                   />
                                 </div>
 
-                                {/* Content Container */}
                                 <div className="flex-1">
                                   <div className="flex justify-between items-start gap-2">
                                     <div className="flex-1">

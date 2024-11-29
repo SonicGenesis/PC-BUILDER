@@ -1,2 +1,0 @@
-# PC-BUILDER
-PC builder
