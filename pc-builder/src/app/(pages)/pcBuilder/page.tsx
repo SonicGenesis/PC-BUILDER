@@ -7,6 +7,7 @@ import { motherboards } from '../../../../data/PC.MOTHERBOARDS';
 import { ramModules } from '../../../../data/PC.RAM';
 import Image from 'next/image';
 import { FiEdit2, FiHeart, FiPlus, FiX, FiChevronDown, FiChevronRight, FiMonitor, FiPlay, FiCpu, FiCode, FiFilm, FiLock, FiUnlock, FiMaximize2 } from 'react-icons/fi';
+import { HiHeart } from 'react-icons/hi';
 import { useDialog } from '@/app/components/GlobalDialog';
 import { useFavorites } from '@/store/useFavorites';
 
@@ -201,6 +202,207 @@ const PURPOSE_RECOMMENDATIONS: Record<string, ComponentRecommendation[]> = {
 // Keep this type definition outside
 type RecommendationWithComponents = ComponentRecommendation & {
   components: PCComponent[];
+};
+
+// First, add these new types near your other type definitions
+type CompatibilityStatus = 'compatible' | 'incompatible' | 'pending' | 'empty';
+
+// First, add this type for compatibility messages
+type CompatibilityMessage = {
+  status: CompatibilityStatus;
+  message: string;
+};
+
+// Enhance the ComponentNode type
+type ComponentNode = {
+  type: ComponentType;
+  status: CompatibilityStatus;
+  dependencies: ComponentType[];
+  message?: string; // Add this for tooltip messages
+};
+
+// Add this function to check specific compatibility issues
+const checkCompatibility = (build: PCBuild): ComponentNode[] => {
+  const messages: Record<ComponentType, CompatibilityMessage> = {
+    cpu: {
+      status: build.components.cpu ? 'compatible' : 'empty',
+      message: build.components.cpu ? 'CPU installed' : 'Install a CPU first'
+    },
+    motherboard: {
+      status: 'empty',
+      message: ''
+    },
+    ram: {
+      status: 'empty',
+      message: ''
+    },
+    gpu: {
+      status: 'empty',
+      message: ''
+    }
+  };
+
+  // Check motherboard compatibility
+  if (build.components.motherboard) {
+    if (!build.components.cpu) {
+      messages.motherboard = {
+        status: 'pending',
+        message: 'Install CPU first to verify compatibility'
+      };
+    } else {
+      // Example socket compatibility check
+      const cpuSocket = build.components.cpu.name.includes('AMD') ? 'AM4' : 'LGA1700';
+      const mbSocket = build.components.motherboard.name.includes('AMD') ? 'AM4' : 'LGA1700';
+      
+      messages.motherboard = {
+        status: cpuSocket === mbSocket ? 'compatible' : 'incompatible',
+        message: cpuSocket === mbSocket ? 
+          'Compatible with installed CPU' : 
+          'CPU socket mismatch! Please check motherboard compatibility'
+      };
+    }
+  }
+
+  // Check RAM compatibility
+  if (build.components.ram) {
+    if (!build.components.motherboard) {
+      messages.ram = {
+        status: 'pending',
+        message: 'Install motherboard first to verify compatibility'
+      };
+    } else {
+      // Example RAM compatibility check
+      const isCompatible = build.components.motherboard.name.includes('DDR4') === 
+                          build.components.ram.name.includes('DDR4');
+      
+      messages.ram = {
+        status: isCompatible ? 'compatible' : 'incompatible',
+        message: isCompatible ? 
+          'RAM is compatible with motherboard' : 
+          'RAM type mismatch! Check DDR generation compatibility'
+      };
+    }
+  }
+
+  // Check GPU compatibility
+  if (build.components.gpu) {
+    if (!build.components.motherboard || !build.components.cpu) {
+      messages.gpu = {
+        status: 'pending',
+        message: 'Install CPU and motherboard first to verify compatibility'
+      };
+    } else {
+      // Example power requirement check
+      const hasEnoughPower = build.components.gpu.name.includes('4090') ? 
+        build.components.cpu.name.includes('i9') || build.components.cpu.name.includes('5950X') :
+        true;
+      
+      messages.gpu = {
+        status: hasEnoughPower ? 'compatible' : 'incompatible',
+        message: hasEnoughPower ? 
+          'GPU is compatible with system' : 
+          'CPU might bottleneck this GPU! Consider upgrading CPU'
+      };
+    }
+  }
+
+  return [
+    {
+      type: 'cpu',
+      status: messages.cpu.status,
+      dependencies: [],
+      message: messages.cpu.message
+    },
+    {
+      type: 'motherboard',
+      status: messages.motherboard.status,
+      dependencies: ['cpu'],
+      message: messages.motherboard.message
+    },
+    {
+      type: 'ram',
+      status: messages.ram.status,
+      dependencies: ['motherboard'],
+      message: messages.ram.message
+    },
+    {
+      type: 'gpu',
+      status: messages.gpu.status,
+      dependencies: ['cpu', 'motherboard'],
+      message: messages.gpu.message
+    }
+  ];
+};
+
+// Update the CompatibilityTree component
+const CompatibilityTree = ({ nodes }: { nodes: ComponentNode[] }) => {
+  return (
+    <div className="absolute left-0 top-0 h-full w-8 flex flex-col items-center">
+      {nodes.map((node, index) => (
+        <div key={node.type} className="flex-1 relative w-full group">
+          {/* Vertical line */}
+          <div 
+            className={`absolute left-1/2 w-0.5 h-full transform -translate-x-1/2
+              ${node.status === 'compatible' ? 'bg-green-500' : 
+                node.status === 'incompatible' ? 'bg-red-500' : 
+                node.status === 'pending' ? 'bg-yellow-500' : 
+                'bg-gray-600'}`}
+          />
+          
+          {/* Node circle with tooltip */}
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <div 
+              className={`w-3 h-3 rounded-full
+                ${node.status === 'compatible' ? 'bg-green-500' : 
+                  node.status === 'incompatible' ? 'bg-red-500' : 
+                  node.status === 'pending' ? 'bg-yellow-500' : 
+                  'bg-gray-600'}
+                ${node.message ? 'cursor-help' : ''}
+              `}
+            />
+            
+            {/* Tooltip */}
+            {node.message && (
+              <div className="absolute left-8 top-1/2 transform -translate-y-1/2 
+                pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity
+                bg-gray-900 text-white text-xs rounded px-2 py-1 w-48 z-50">
+                <div className="flex items-start gap-2">
+                  <span className={`
+                    w-2 h-2 rounded-full flex-shrink-0 mt-1
+                    ${node.status === 'compatible' ? 'bg-green-500' : 
+                      node.status === 'incompatible' ? 'bg-red-500' : 
+                      node.status === 'pending' ? 'bg-yellow-500' : 
+                      'bg-gray-600'}
+                  `}/>
+                  <span>{node.message}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Dependency lines */}
+          {node.dependencies.map(dep => {
+            const depIndex = nodes.findIndex(n => n.type === dep);
+            if (depIndex === -1) return null;
+            
+            return (
+              <div
+                key={`${node.type}-${dep}`}
+                className={`absolute left-1/2 w-4 border-t transform -translate-y-1/2
+                  ${node.status === 'compatible' ? 'border-green-500' : 
+                    node.status === 'incompatible' ? 'border-red-500' : 
+                    node.status === 'pending' ? 'border-yellow-500' : 
+                    'border-gray-600'}`}
+                style={{
+                  top: `${(depIndex - index) * 100}%`
+                }}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
 };
 
 export default function PcBuilderScreen() {
@@ -869,8 +1071,14 @@ export default function PcBuilderScreen() {
                                 >
                                   {(provided) => {
                                     const isRecommended = builds.some(build => {
+                                      const compatibilityNodes = checkCompatibility(build);
+                                      const isCompatible = compatibilityNodes.some(node => 
+                                        build.components[node.type]?.id === component.id && 
+                                        node.status === 'compatible'
+                                      );
+                                      
                                       const recommendations = getRecommendedComponents(build);
-                                      return recommendations.some(rec => 
+                                      return isCompatible && recommendations.some(rec => 
                                         rec.components.some((c: PCComponent) => c.id === component.id)
                                       );
                                     });
@@ -880,42 +1088,78 @@ export default function PcBuilderScreen() {
                                         ref={provided.innerRef}
                                         {...provided.draggableProps}
                                         {...provided.dragHandleProps}
-                                        className={`bg-[#374151] p-3 rounded-lg relative group
-                                          ${isRecommended ? 'ring-2 ring-green-500 dark:ring-green-400' : ''}
+                                        className={`bg-[#374151] p-3 rounded-lg relative group transition-all hover:shadow-lg hover:bg-[#3D4759]
+                                          ${isRecommended ? 'ring-1 ring-green-500 dark:ring-green-400' : ''}
                                         `}
                                       >
                                         {isRecommended && (
-                                          <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                                          <div className="absolute -top-2 -right-2 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                                             Recommended
                                           </div>
                                         )}
-                                        <button
-                                          onClick={() => toggleFavorite(component)}
-                                          className={`absolute right-2 top-2 p-1 rounded-full 
-                                            ${favorites.some(c => c.id === component.id)
-                                              ? 'text-red-500'
-                                              : 'text-gray-400 opacity-0 group-hover:opacity-100'
-                                            }`}
-                                        >
-                                          <FiHeart />
-                                        </button>
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-10 h-10 relative">
+                                        
+                                        <div className="flex gap-3">
+                                          {/* Image Container - Made smaller */}
+                                          <div className="w-16 h-16 relative bg-[#2D3748] rounded-lg p-1.5 flex items-center justify-center flex-shrink-0">
                                             <Image
                                               src={component.image || '/images/placeholder.jpg'}
                                               alt={component.name}
                                               fill
-                                              className="object-contain"
+                                              className="object-contain p-1.5"
                                             />
                                           </div>
-                                          <div>
-                                            <p className="font-medium text-sm text-white">{component.name}</p>
-                                            <p className="text-sm text-gray-400">
-                                              ₹{component.price.toLocaleString()}
-                                            </p>
+
+                                          {/* Content Container */}
+                                          <div className="flex-1">
+                                            <div className="flex justify-between items-start gap-2">
+                                              <div className="flex-1">
+                                                {/* Component Type Badge */}
+                                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 mb-1 inline-block">
+                                                  {COMPONENT_DISPLAY_NAMES[component.type]}
+                                                </span>
+                                                
+                                                {/* Component Name */}
+                                                <h3 className="font-medium text-white text-sm leading-tight mb-0.5 break-words">
+                                                  {component.name}
+                                                </h3>
+                                                
+                                                {/* Company Name */}
+                                                <p className="text-xs text-gray-400 mb-1">
+                                                  by {component.company}
+                                                </p>
+                                              </div>
+
+                                              {/* Favorite Button */}
+                                              <button
+                                                onClick={() => toggleFavorite(component)}
+                                                className={`p-1.5 rounded-full transition-all transform hover:scale-110 flex-shrink-0
+                                                  ${favorites.some(c => c.id === component.id)
+                                                    ? 'text-red-500'
+                                                    : 'text-gray-400 opacity-0 group-hover:opacity-100'
+                                                  }`}
+                                              >
+                                                {favorites.some(c => c.id === component.id) ? (
+                                                  <HiHeart className="w-5 h-5" />
+                                                ) : (
+                                                  <FiHeart className="w-5 h-5" />
+                                                )}
+                                              </button>
+                                            </div>
+
+                                            {/* Price Section */}
+                                            <div className="flex items-baseline gap-1">
+                                              <span className="text-base font-bold text-white">
+                                                ₹{Math.floor(component.price).toLocaleString()}
+                                              </span>
+                                              <span className="text-xs text-gray-400">
+                                                .{(component.price % 1).toFixed(2).slice(2)}
+                                              </span>
+                                            </div>
+
                                             {isRecommended && (
-                                              <p className="text-xs text-green-400 mt-1">
-                                                Perfect match for your build
+                                              <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                                                Perfect match
                                               </p>
                                             )}
                                           </div>
@@ -960,28 +1204,47 @@ export default function PcBuilderScreen() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
-                              className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg relative group"
+                              className="bg-gray-700 p-3 rounded-lg relative group hover:bg-gray-600 transition-all"
                             >
-                              <button
-                                onClick={() => toggleFavorite(component)}
-                                className="absolute right-2 top-2 p-1 rounded-full text-red-500"
-                              >
-                                <FiHeart />
-                              </button>
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 relative">
+                              <div className="flex gap-3">
+                                {/* Image Container */}
+                                <div className="w-14 h-14 relative bg-gray-800 rounded-lg p-1.5 flex items-center justify-center flex-shrink-0">
                                   <Image
                                     src={component.image || '/images/placeholder.jpg'}
                                     alt={component.name}
                                     fill
-                                    className="object-contain"
+                                    className="object-contain p-1.5"
                                   />
                                 </div>
-                                <div>
-                                  <p className="font-medium text-sm">{component.name}</p>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    ₹{component.price}
-                                  </p>
+
+                                {/* Content Container */}
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="flex-1">
+                                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 mb-1 inline-block">
+                                        {COMPONENT_DISPLAY_NAMES[component.type]}
+                                      </span>
+                                      <h3 className="font-medium text-white text-sm leading-tight mb-0.5 break-words">
+                                        {component.name}
+                                      </h3>
+                                    </div>
+
+                                    <button
+                                      onClick={() => toggleFavorite(component)}
+                                      className="p-1.5 rounded-full text-red-500 transition-all transform hover:scale-110 flex-shrink-0"
+                                    >
+                                      <HiHeart className="w-5 h-5" />
+                                    </button>
+                                  </div>
+
+                                  <div className="flex items-baseline gap-1">
+                                    <span className="text-base font-bold text-white">
+                                      ₹{Math.floor(component.price).toLocaleString()}
+                                    </span>
+                                    <span className="text-xs text-gray-400">
+                                      .{(component.price % 1).toFixed(2).slice(2)}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -1044,137 +1307,143 @@ export default function PcBuilderScreen() {
                 builds.map((build) => (
                   <div
                     key={build.id}
-                    className="bg-[#1F2937] rounded-xl p-6 min-w-[350px]"
+                    className="bg-[#1F2937] rounded-xl p-6 min-w-[350px] relative"
                   >
-                    <div className="flex justify-between items-center mb-6">
-                      {editingBuildId === build.id ? (
-                        <input
-                          type="text"
-                          value={editingBuildName}
-                          onChange={(e) => setEditingBuildName(e.target.value)}
-                          onBlur={saveBuildName}
-                          onKeyPress={(e) => e.key === 'Enter' && saveBuildName()}
-                          className="text-xl font-bold bg-transparent border-b border-gray-600 focus:outline-none focus:border-blue-500 text-white"
-                          autoFocus
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-xl font-bold text-white">{build.name}</h2>
-                          <button
-                            onClick={() => startEditingBuildName(build.id, build.name)}
-                            className="p-1 text-gray-400 hover:text-gray-300"
-                          >
-                            <FiEdit2 size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleBuildDelete(build.id, build.name)}
-                            className="p-1 text-gray-400 hover:text-gray-300"
-                          >
-                            <FiX className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                      <div className="text-right">
-                        <div className="flex items-center justify-end gap-2 mb-1">
-                          {editingBudgetId === build.id ? (
-                            <input
-                              type="number"
-                              min={MIN_BUDGET}
-                              value={editingBudgetValue}
-                              onChange={(e) => {
-                                const value = Math.max(0, parseInt(e.target.value) || 0);
-                                setEditingBudgetValue(value);
-                              }}
-                              onBlur={saveBudget}
-                              onKeyPress={(e) => e.key === 'Enter' && saveBudget()}
-                              className="w-32 px-2 py-1 text-sm bg-transparent border-b border-gray-600 
-                                focus:outline-none focus:border-blue-500 text-white text-right"
-                              placeholder={`Min ₹${MIN_BUDGET.toLocaleString()}`}
-                              autoFocus
-                            />
-                          ) : (
-                            <>
-                              <span className="text-sm text-gray-400">
-                                Budget: ₹{build.budget.toLocaleString()}
-                              </span>
-                              <button
-                                onClick={() => startEditingBudget(build.id, build.budget)}
-                                className="p-1 text-gray-400 hover:text-gray-300"
-                              >
-                                <FiEdit2 size={12} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                        <p className={`text-lg font-medium ${
-                          calculateBuildPrice(build) > build.budget 
-                            ? 'text-red-500' 
-                            : 'text-white'
-                        }`}>
-                          Total: ₹{calculateBuildPrice(build).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <Droppable droppableId={build.id}>
-                      {(provided, snapshot) => (
-                        <div
-                          {...provided.droppableProps}
-                          ref={provided.innerRef}
-                          className="space-y-4"
-                        >
-                          {['gpu', 'cpu', 'motherboard', 'ram'].map((type) => (
-                            <div
-                              key={type}
-                              className={`
-                                border-2 border-dashed rounded-xl p-4
-                                ${snapshot.isDraggingOver && !build.components[type as ComponentType]
-                                  ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                                  : 'border-gray-200 dark:border-gray-700'}
-                                ${build.components[type as ComponentType]
-                                  ? 'border-solid border-green-400 dark:border-green-600'
-                                  : ''}
-                              `}
+                    {/* Add the compatibility tree */}
+                    <CompatibilityTree nodes={checkCompatibility(build)} />
+
+                    {/* Add left padding to make room for the tree */}
+                    <div className="pl-8">
+                      <div className="flex justify-between items-center mb-6">
+                        {editingBuildId === build.id ? (
+                          <input
+                            type="text"
+                            value={editingBuildName}
+                            onChange={(e) => setEditingBuildName(e.target.value)}
+                            onBlur={saveBuildName}
+                            onKeyPress={(e) => e.key === 'Enter' && saveBuildName()}
+                            className="text-xl font-bold bg-transparent border-b border-gray-600 focus:outline-none focus:border-blue-500 text-white"
+                            autoFocus
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <h2 className="text-xl font-bold text-white">{build.name}</h2>
+                            <button
+                              onClick={() => startEditingBuildName(build.id, build.name)}
+                              className="p-1 text-gray-400 hover:text-gray-300"
                             >
-                              <p className="text-sm font-medium mb-2 capitalize">{type}</p>
-                              {build.components[type as ComponentType] ? (
-                                <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg relative group">
-                                  <button
-                                    onClick={() => handleComponentRemove(build.id, type as ComponentType)}
-                                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                  >
-                                    <FiX className="w-4 h-4" />
-                                  </button>
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 relative">
-                                      <Image
-                                        src={build.components[type as ComponentType]?.image || '/images/placeholder.jpg'}
-                                        alt={build.components[type as ComponentType]?.name || ''}
-                                        fill
-                                        className="object-contain"
-                                      />
-                                    </div>
-                                    <div>
-                                      <p className="font-medium text-sm">
-                                        {build.components[type as ComponentType]?.name}
-                                      </p>
-                                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        ₹{build.components[type as ComponentType]?.price.toLocaleString()}
-                                      </p>
+                              <FiEdit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleBuildDelete(build.id, build.name)}
+                              className="p-1 text-gray-400 hover:text-gray-300"
+                            >
+                              <FiX className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                        <div className="text-right">
+                          <div className="flex items-center justify-end gap-2 mb-1">
+                            {editingBudgetId === build.id ? (
+                              <input
+                                type="number"
+                                min={MIN_BUDGET}
+                                value={editingBudgetValue}
+                                onChange={(e) => {
+                                  const value = Math.max(0, parseInt(e.target.value) || 0);
+                                  setEditingBudgetValue(value);
+                                }}
+                                onBlur={saveBudget}
+                                onKeyPress={(e) => e.key === 'Enter' && saveBudget()}
+                                className="w-32 px-2 py-1 text-sm bg-transparent border-b border-gray-600 
+                                  focus:outline-none focus:border-blue-500 text-white text-right"
+                                placeholder={`Min ₹${MIN_BUDGET.toLocaleString()}`}
+                                autoFocus
+                              />
+                            ) : (
+                              <>
+                                <span className="text-sm text-gray-400">
+                                  Budget: ₹{build.budget.toLocaleString()}
+                                </span>
+                                <button
+                                  onClick={() => startEditingBudget(build.id, build.budget)}
+                                  className="p-1 text-gray-400 hover:text-gray-300"
+                                >
+                                  <FiEdit2 size={12} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                          <p className={`text-lg font-medium ${
+                            calculateBuildPrice(build) > build.budget 
+                              ? 'text-red-500' 
+                              : 'text-white'
+                          }`}>
+                            Total: ₹{calculateBuildPrice(build).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <Droppable droppableId={build.id}>
+                        {(provided, snapshot) => (
+                          <div
+                            {...provided.droppableProps}
+                            ref={provided.innerRef}
+                            className="space-y-4"
+                          >
+                            {['cpu', 'motherboard', 'ram', 'gpu'].map((type) => (
+                              <div
+                                key={type}
+                                className={`
+                                  border-2 border-dashed rounded-xl p-4
+                                  ${snapshot.isDraggingOver && !build.components[type as ComponentType]
+                                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                                    : 'border-gray-200 dark:border-gray-700'}
+                                  ${build.components[type as ComponentType]
+                                    ? 'border-solid border-green-400 dark:border-green-600'
+                                    : ''}
+                                `}
+                              >
+                                <p className="text-sm font-medium mb-2 capitalize">{type}</p>
+                                {build.components[type as ComponentType] ? (
+                                  <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg relative group">
+                                    <button
+                                      onClick={() => handleComponentRemove(build.id, type as ComponentType)}
+                                      className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <FiX className="w-4 h-4" />
+                                    </button>
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 relative">
+                                        <Image
+                                          src={build.components[type as ComponentType]?.image || '/images/placeholder.jpg'}
+                                          alt={build.components[type as ComponentType]?.name || ''}
+                                          fill
+                                          className="object-contain"
+                                        />
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-sm">
+                                          {build.components[type as ComponentType]?.name}
+                                        </p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                          ₹{build.components[type as ComponentType]?.price.toLocaleString()}
+                                        </p>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              ) : (
-                                <p className="text-sm text-gray-400">
-                                  Drag and drop a {COMPONENT_DISPLAY_NAMES[type as ComponentType].toLowerCase()} here
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
+                                ) : (
+                                  <p className="text-sm text-gray-400">
+                                    Drag and drop a {COMPONENT_DISPLAY_NAMES[type as ComponentType].toLowerCase()} here
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
                   </div>
                 ))
               )}
