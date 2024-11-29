@@ -1317,6 +1317,191 @@ export default function PcBuilderScreen() {
     };
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
+  // Add this new function near your other handlers
+  const handleComponentClick = (component: PCComponent) => {
+    // If no builds exist, prompt to create one
+    if (builds.length === 0) {
+      createBuildWithComponent(component);
+      return;
+    }
+
+    const handleReplacement = (build: PCBuild) => {
+      const existingComponent = build.components[component.type];
+      
+      if (existingComponent) {
+        showDialog({
+          type: 'confirm',
+          title: 'Replace Component',
+          message: (
+            <div className="space-y-4">
+              <p className="text-gray-600 dark:text-gray-400">
+                This build already has a {COMPONENT_DISPLAY_NAMES[component.type].toLowerCase()}:
+              </p>
+              
+              {/* Comparison View */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Existing Component */}
+                <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                  <div className="text-xs text-red-500 mb-2">Current Component</div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-16 h-16 relative bg-gray-200 dark:bg-gray-600 rounded-lg flex-shrink-0">
+                      <Image
+                        src={existingComponent.image || '/images/placeholder.jpg'}
+                        alt={existingComponent.name}
+                        fill
+                        className="object-contain p-2"
+                      />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm">{existingComponent.name}</h4>
+                      <p className="text-sm text-gray-500">₹{existingComponent.price.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* New Component */}
+                <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                  <div className="text-xs text-green-500 mb-2">New Component</div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-16 h-16 relative bg-gray-200 dark:bg-gray-600 rounded-lg flex-shrink-0">
+                      <Image
+                        src={component.image || '/images/placeholder.jpg'}
+                        alt={component.name}
+                        fill
+                        className="object-contain p-2"
+                      />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm">{component.name}</h4>
+                      <p className="text-sm text-gray-500">₹{component.price.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Price Difference */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-blue-600 dark:text-blue-400">Price Difference:</span>
+                  <span className={`font-medium ${
+                    component.price > existingComponent.price 
+                      ? 'text-red-500' 
+                      : 'text-green-500'
+                  }`}>
+                    {component.price > existingComponent.price ? '+' : ''}
+                    ₹{(component.price - existingComponent.price).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    const updatedBuilds = builds.map(b => 
+                      b.id === build.id 
+                        ? { ...b, components: { ...b.components, [component.type]: component } }
+                        : b
+                    );
+                    updateBuilds(updatedBuilds);
+                    showDialog({
+                      type: 'success',
+                      title: 'Component Replaced',
+                      message: `Successfully replaced with ${component.name}`
+                    });
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  Replace Component
+                </button>
+                <button
+                  onClick={() => {
+                    showDialog({
+                      type: 'success',
+                      title: 'Cancelled',
+                      message: 'Component replacement cancelled'
+                    });
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                  Keep Existing
+                </button>
+              </div>
+            </div>
+          )
+        });
+        return;
+      }
+
+      // Add new component if no existing component
+      const updatedBuilds = builds.map(b => 
+        b.id === build.id 
+          ? { ...b, components: { ...b.components, [component.type]: component } }
+          : b
+      );
+      updateBuilds(updatedBuilds);
+      showDialog({
+        type: 'success',
+        title: 'Component Added',
+        message: `${component.name} added to ${build.name}`
+      });
+    };
+
+    // If only one build exists
+    if (builds.length === 1) {
+      handleReplacement(builds[0]);
+      return;
+    }
+
+    // If multiple builds exist, show build selection dialog
+    showDialog({
+      type: 'confirm',
+      title: 'Select Build',
+      message: (
+        <div className="space-y-4">
+          <p className="text-gray-600 dark:text-gray-400">
+            Select which build to add {component.name} to:
+          </p>
+          <div className="space-y-2">
+            {builds.map((build) => (
+              <button
+                key={build.id}
+                onClick={() => handleReplacement(build)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg
+                  bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
+                  dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-800 dark:text-gray-200">
+                    {build.name}
+                  </span>
+                  {build.components[component.type] && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-yellow-500/10 text-yellow-500">
+                      Will replace existing {COMPONENT_DISPLAY_NAMES[component.type]}
+                    </span>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">
+                    Current Total: ₹{calculateBuildPrice(build).toLocaleString()}
+                  </div>
+                  {build.components[component.type] && (
+                    <div className="text-xs text-gray-400">
+                      New Total: ₹{(
+                        calculateBuildPrice(build) - 
+                        (build.components[component.type]?.price || 0) + 
+                        component.price
+                      ).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    });
+  };
+
   return (
     <div className="min-h-screen w-full pt-20 pb-16 bg-[#111827]">
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -1441,12 +1626,13 @@ export default function PcBuilderScreen() {
                                         ref={provided.innerRef}
                                         {...provided.draggableProps}
                                         {...provided.dragHandleProps}
-                                        className={`bg-[#374151] p-3 rounded-lg relative group transition-all hover:shadow-lg hover:bg-[#3D4759]
+                                        className={`bg-[#374151] p-3 rounded-lg relative group transition-all hover:shadow-lg hover:bg-[#3D4759] cursor-pointer
                                           ${isRecommended ? 
                                             'ring-2 ring-green-500/50 dark:ring-green-400/50 shadow-[0_0_10px_rgba(34,197,94,0.2)] dark:shadow-[0_0_15px_rgba(34,197,94,0.15)]' : 
                                             'hover:shadow-black/5'
                                           }
                                         `}
+                                        onClick={() => handleComponentClick(component)}
                                       >
                                         {isRecommended && (
                                           <>
@@ -1872,3 +2058,4 @@ export default function PcBuilderScreen() {
     </div>
   );
 }
+
