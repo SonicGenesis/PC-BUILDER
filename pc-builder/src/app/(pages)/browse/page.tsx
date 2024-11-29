@@ -1,483 +1,537 @@
 "use client";
-import { useState, useEffect, useMemo } from 'react';
-import Image from 'next/image';
+import React, { useState, useEffect } from 'react';
 import { graphicsCards } from '../../../../data/PC.GRAPHICCARDS';
-import { motherboards } from '../../../../data/PC.MOTHERBOARDS';
 import { processors } from '../../../../data/PC.PROCESSORS';
+import { motherboards } from '../../../../data/PC.MOTHERBOARDS';
 import { ramModules } from '../../../../data/PC.RAM';
-import { Slider } from '@/app/components/Slider';
-import { Star, ArrowUpDown, Cpu, MonitorPlay, CircuitBoard, HardDrive, Heart } from 'lucide-react';
-import { CustomSelect } from '@/app/components/CustomSelect';
-import Link from 'next/link';
-import { useFavorites } from '@/store/useFavorites';
+import Image from 'next/image';
+import { FiSearch, FiX, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// Add this type definition near the top with other types
-type ComponentType = 'gpu' | 'cpu' | 'motherboard' | 'ram';
+// Define types for different component categories
+type ComponentType = 'gpu' | 'cpu' | 'motherboard' | 'ram' | 'all';
 
-// Define strict types for components
-type BaseComponent = {
+// Define filter options for each component type
+type FilterValues = string[];
+
+type FilterConfig = {
+  name: string;
+  filters: Record<string, FilterValues>;
+};
+
+type FilterConfigs = {
+  [K in Exclude<ComponentType, 'all'>]: FilterConfig;
+};
+
+const filterConfigs: FilterConfigs = {
+  gpu: {
+    name: 'Graphics Cards',
+    filters: {
+      brand: ['NVIDIA', 'AMD', 'Intel'],
+      vram: ['4GB', '6GB', '8GB', '12GB', '16GB', '24GB'],
+      memoryType: ['GDDR6', 'GDDR6X'],
+      powerConsumption: ['150W-250W', '250W-350W', '350W+']
+    }
+  },
+  cpu: {
+    name: 'Processors',
+    filters: {
+      brand: ['AMD', 'Intel'],
+      cores: ['4', '6', '8', '10', '12', '16'],
+      socket: ['AM4', 'AM5', 'LGA1700', 'LGA1200'],
+      clockSpeed: ['3.0-3.5GHz', '3.5-4.0GHz', '4.0-4.5GHz', '4.5GHz+']
+    }
+  },
+  ram: {
+    name: 'Memory',
+    filters: {
+      formFactor: ['DIMM', 'RDIMM', 'SO-DIMM'],
+      capacity: ['4GB', '8GB', '16GB', '32GB', '64GB'],
+      speed: ['2666MHz', '3200MHz', '3600MHz', '4000MHz+'],
+      features: ['RGB', 'ECC', 'Low Profile']
+    }
+  },
+  motherboard: {
+    name: 'Motherboards',
+    filters: {
+      formFactor: ['ATX', 'Micro-ATX', 'Mini-ITX'],
+      socket: ['AM4', 'AM5', 'LGA1700', 'LGA1200'],
+      chipset: ['B550', 'X570', 'Z690', 'Z790'],
+      features: ['WiFi', 'Bluetooth', 'RGB']
+    }
+  }
+};
+
+// Define deals and promotions
+const deals = [
+  {
+    id: 1,
+    title: "Epic Games Sale",
+    description: "Up to 75% off on selected titles",
+    image: "/images/epic-games-sale.jpg",
+    discount: "75%",
+    endDate: "2024-04-30"
+  },
+  {
+    id: 2,
+    title: "Steam Spring Sale",
+    description: "Massive discounts on popular games",
+    image: "/images/steam-sale.jpg",
+    discount: "80%",
+    endDate: "2024-04-25"
+  },
+  // Add more deals...
+];
+
+// Define featured components
+const featuredComponents = [
+  {
+    id: 1,
+    name: "NVIDIA GeForce RTX 4090",
+    type: "gpu",
+    discount: "10%",
+    originalPrice: 149999,
+    discountedPrice: 134999,
+    image: "/images/GRAPGHIC_CARD.jpg"
+  },
+  {
+    id: 2,
+    name: "AMD Ryzen 9 7950X",
+    type: "cpu",
+    discount: "15%",
+    originalPrice: 59999,
+    discountedPrice: 50999,
+    image: "/images/PROCESSOR.jpg"
+  },
+  {
+    id: 3,
+    name: "G.Skill Trident Z5 RGB",
+    type: "ram",
+    discount: "20%",
+    originalPrice: 24999,
+    discountedPrice: 19999,
+    image: "/images/MEMORY.jpg",
+    specs: "32GB (2x16GB) DDR5-6000"
+  },
+  {
+    id: 4,
+    name: "ASUS ROG Maximus Z790 Hero",
+    type: "motherboard",
+    discount: "12%",
+    originalPrice: 69999,
+    discountedPrice: 61599,
+    image: "/images/pc-build-preview.jpg"
+  },
+  {
+    id: 5,
+    name: "AMD Radeon RX 7900 XTX",
+    type: "gpu",
+    discount: "8%",
+    originalPrice: 109999,
+    discountedPrice: 101199,
+    image: "/images/GRAPGHIC_CARD.jpg"
+  },
+  {
+    id: 6,
+    name: "Intel Core i9-13900K",
+    type: "cpu",
+    discount: "18%",
+    originalPrice: 64999,
+    discountedPrice: 53299,
+    image: "/images/PROCESSOR.jpg"
+  },
+  {
+    id: 7,
+    name: "Corsair Dominator Platinum RGB",
+    type: "ram",
+    discount: "25%",
+    originalPrice: 29999,
+    discountedPrice: 22499,
+    image: "/images/MEMORY.jpg",
+    specs: "64GB (2x32GB) DDR5-5600"
+  },
+  {
+    id: 8,
+    name: "MSI MEG Z790 ACE",
+    type: "motherboard",
+    discount: "15%",
+    originalPrice: 74999,
+    discountedPrice: 63749,
+    image: "/images/pc-build-preview.jpg"
+  },
+  {
+    id: 9,
+    name: "NVIDIA GeForce RTX 4080",
+    type: "gpu",
+    discount: "12%",
+    originalPrice: 119999,
+    discountedPrice: 105599,
+    image: "/images/GRAPGHIC_CARD.jpg"
+  }
+];
+
+// Add these helper functions at the top of the file
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+const formatIndianPrice = (price: number) => {
+  const priceString = price.toString();
+  const lastThree = priceString.substring(priceString.length - 3);
+  const otherNumbers = priceString.substring(0, priceString.length - 3);
+  const formatted = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+  return formatted + (formatted ? ',' : '') + lastThree;
+};
+
+// Define the interfaces to match your actual data structure
+interface BaseComponent {
   id: string;
   name: string;
   price: number;
   company: string;
   image: string;
-  category: string;
-  rating: number;
-  reviews: number;
-  seller: string;
-  availability: string;
   type: ComponentType;
-};
+  originalPrice?: number;
+}
 
-type GPUComponent = BaseComponent & {
-  category: 'gpu';
+interface GPU extends BaseComponent {
+  type: 'gpu';
   vram: string;
-  brand: string;
-  model: string;
-};
+  brand?: string;
+  model?: string;
+}
 
-type CPUComponent = BaseComponent & {
-  category: 'cpu';
+interface CPU extends BaseComponent {
+  type: 'cpu';
   cores: number;
   threads: number;
   base_clock: string;
   turbo_clock: string;
   description: string;
-};
+}
 
-type RAMComponent = BaseComponent & {
-  category: 'ram';
-  type: string;
+interface RAM extends BaseComponent {
+  type: 'ram';
   capacity: string;
   speed: string;
-};
+  modules: number;
+}
 
-type MotherboardComponent = BaseComponent & {
-  category: 'motherboard';
+interface Motherboard extends BaseComponent {
+  type: 'motherboard';
   socket: string;
   formFactor: string;
-  integration: string;
-};
+  integration?: string;
+  chipset?: string;
+}
 
-// Define a type for mapped components
-type MappedComponent = (GPUComponent | CPUComponent | RAMComponent | MotherboardComponent) & {
-  rating: number;
-  reviews: number;
-  seller: string;
-  availability: string;
-  type: ComponentType;
-};
+type Component = GPU | CPU | RAM | Motherboard;
 
-// Types for dynamic filters
-type FilterOption = {
-  label: string;
-  value: string;
-  count: number;
-};
-
-type DynamicFilters = {
-  [key: string]: {
-    label: string;
-    options: FilterOption[];
-  };
-};
+// Update the component mapping with proper type assertions
+const allComponents: Component[] = [
+  ...graphicsCards.map(c => ({ 
+    ...c, 
+    type: 'gpu' as const,
+    originalPrice: c.price * 1.1
+  })) as GPU[],
+  ...processors.map(c => ({ 
+    ...c, 
+    type: 'cpu' as const,
+    originalPrice: c.price * 1.15
+  })) as CPU[],
+  ...motherboards.map(c => ({ 
+    ...c, 
+    type: 'motherboard' as const,
+    chipset: c.integration || 'Unknown',
+    originalPrice: c.price * 1.12
+  })) as Motherboard[],
+  ...ramModules.map(c => ({ 
+    ...c, 
+    type: 'ram' as const,
+    originalPrice: c.price * 1.2
+  })) as RAM[]
+];
 
 export default function BrowsePage() {
-    const [selectedCategory, setSelectedCategory] = useState('all');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [priceRange, setPriceRange] = useState([0, 200000]);
-    const [sortBy, setSortBy] = useState<'price-asc' | 'price-desc' | 'featured'>('featured');
-    const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
-    const [dynamicFilters, setDynamicFilters] = useState<DynamicFilters>({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedType, setSelectedType] = useState<ComponentType>('all');
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
-    const categoryOptions = [
-        { value: 'all', label: 'All Categories', icon: <CircuitBoard className="w-4 h-4" /> },
-        { value: 'cpu', label: 'Processors', icon: <Cpu className="w-4 h-4" /> },
-        { value: 'gpu', label: 'Graphics Cards', icon: <MonitorPlay className="w-4 h-4" /> },
-        { value: 'motherboard', label: 'Motherboards', icon: <CircuitBoard className="w-4 h-4" /> },
-        { value: 'ram', label: 'Memory', icon: <HardDrive className="w-4 h-4" /> }
-    ];
+  // Function to get relevant filters based on search and component type
+  const getRelevantFilters = () => {
+    if (selectedType === 'all') {
+      if (searchTerm.toLowerCase().includes('gpu') || searchTerm.toLowerCase().includes('graphics')) {
+        return filterConfigs.gpu.filters;
+      } else if (searchTerm.toLowerCase().includes('cpu') || searchTerm.toLowerCase().includes('processor')) {
+        return filterConfigs.cpu.filters;
+      } else if (searchTerm.toLowerCase().includes('ram') || searchTerm.toLowerCase().includes('memory')) {
+        return filterConfigs.ram.filters;
+      } else if (searchTerm.toLowerCase().includes('motherboard')) {
+        return filterConfigs.motherboard.filters;
+      }
+      return {};
+    }
+    
+    // Since we know selectedType is not 'all' at this point, it must be a valid key of filterConfigs
+    return filterConfigs[selectedType as Exclude<ComponentType, 'all'>].filters;
+  };
 
-    // Move allComponents to useMemo to fix exhaustive-deps warning
-    const allComponents = useMemo(() => {
-        const gpuComponents: MappedComponent[] = graphicsCards.map(item => ({
-            ...item,
-            category: 'gpu' as const,
-            type: 'gpu',
-            rating: 4.5,
-            reviews: 128,
-            seller: "Amazon",
-            availability: "In Stock",
-            image: item.image || '/images/placeholder.jpg',
-            brand: item.brand || item.company,
-            model: item.model || 'Standard'
-        }));
+  // Function to toggle filter sections
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
-        const cpuComponents: MappedComponent[] = processors.map(item => ({
-            ...item,
-            category: 'cpu' as const,
-            type: 'cpu',
-            rating: 4.3,
-            reviews: 95,
-            seller: "Newegg",
-            availability: "In Stock",
-            image: item.image || '/images/placeholder.jpg'
-        }));
-
-        const mbComponents: MappedComponent[] = motherboards.map(item => ({
-            ...item,
-            category: 'motherboard' as const,
-            type: 'motherboard',
-            rating: 4.2,
-            reviews: 76,
-            seller: "Amazon",
-            availability: "Limited Stock",
-            image: item.image || '/images/placeholder.jpg'
-        }));
-
-        const ramComponents: MappedComponent[] = ramModules.map(item => ({
-            ...item,
-            category: 'ram' as const,
-            type: 'ram',
-            rating: 4.4,
-            reviews: 112,
-            seller: "Newegg",
-            availability: "In Stock",
-            image: item.image || '/images/placeholder.jpg'
-        }));
-
-        return [...gpuComponents, ...cpuComponents, ...mbComponents, ...ramComponents];
-    }, []);
-
-    useEffect(() => {
-        const filters: DynamicFilters = {};
-        const components = allComponents;
-
-        // Always show brand filter
-        filters.brand = {
-            label: 'Brand',
-            options: Array.from(new Set(components.map(c => c.company)))
-                .map(brand => ({
-                    label: brand,
-                    value: brand,
-                    count: components.filter(c => c.company === brand).length
-                }))
-        };
-
-        // Category specific filters
-        if (selectedCategory === 'gpu' || selectedCategory === 'all') {
-            const gpuComponents = components.filter(
-                (c): c is MappedComponent & GPUComponent => c.category === 'gpu'
-            );
-            if (gpuComponents.length > 0) {
-                filters.vram = {
-                    label: 'VRAM',
-                    options: Array.from(new Set(gpuComponents.map(c => c.vram)))
-                        .map(vram => ({
-                            label: vram,
-                            value: vram,
-                            count: gpuComponents.filter(c => c.vram === vram).length
-                        }))
-                };
-            }
-        }
-
-        if (selectedCategory === 'ram' || selectedCategory === 'all') {
-            const ramComponents = components.filter(
-                (c): c is MappedComponent & RAMComponent => c.category === 'ram'
-            );
-            if (ramComponents.length > 0) {
-                filters.type = {
-                    label: 'Type',
-                    options: Array.from(new Set(ramComponents.map(c => c.type)))
-                        .map(type => ({
-                            label: type,
-                            value: type,
-                            count: ramComponents.filter(c => c.type === type).length
-                        }))
-                };
-            }
-        }
-
-        setDynamicFilters(filters);
-    }, [selectedCategory, allComponents]);
-
-    const filteredComponents = allComponents.filter(component => {
-        const matchesCategory = selectedCategory === 'all' || component.category === selectedCategory;
-        const matchesSearch = component.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesPrice = component.price >= priceRange[0] && component.price <= priceRange[1];
-        
-        const matchesFilters = Object.entries(selectedFilters).every(([key, values]) => {
-            if (values.length === 0) return true;
-            const componentValue = String(component[key as keyof typeof component]);
-            return values.includes(componentValue);
-        });
-
-        return matchesCategory && matchesSearch && matchesPrice && matchesFilters;
-    }).sort((a, b) => {
-        if (sortBy === 'price-asc') return a.price - b.price;
-        if (sortBy === 'price-desc') return b.price - a.price;
-        return 0;
+  // Function to toggle filter values
+  const toggleFilter = (category: string, value: string) => {
+    setActiveFilters(prev => {
+      const current = prev[category] || [];
+      const updated = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value];
+      return {
+        ...prev,
+        [category]: updated
+      };
     });
+  };
 
-    // Add favorites store hooks
-    const { toggleFavorite, favorites } = useFavorites();
+  // Update the getFilteredComponents function with type guards
+  const getFilteredComponents = () => {
+    return allComponents.filter(component => {
+      // Search term filter
+      if (searchTerm && !component.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
 
-    // Add a helper function to check if a component is favorite
-    const isComponentFavorite = (componentId: string) => {
-        return favorites.some(fav => fav.id === componentId);
-    };
+      // Component type filter
+      if (selectedType !== 'all' && component.type !== selectedType) {
+        return false;
+      }
 
-    return (
-        <div className="min-h-screen bg-[#111827]">
-            {/* Top Search Bar */}
-            <div className="sticky top-0 z-50 bg-gradient-to-r from-[#1F2937] to-[#111827] shadow-lg border-b border-gray-800">
-                <div className="container mx-auto px-4 py-4">
-                    <div className="flex items-center gap-6">
-                        {/* Website Logo/Name */}
-                        <Link 
-                            href="/" 
-                            className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 transition-all flex items-center gap-2"
-                        >
-                            <CircuitBoard className="w-6 h-6 text-blue-400" />
-                            <span>BuildMyPC</span>
-                        </Link>
+      // Active filters
+      for (const [category, selectedValues] of Object.entries(activeFilters)) {
+        if (selectedValues.length === 0) continue;
 
-                        {/* Search and Category Selection */}
-                        <div className="flex flex-1 items-center gap-4">
-                            <div className="relative flex-1">
-                                <input
-                                    type="search"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search components..."
-                                    className="w-full px-4 py-2 pl-10 rounded-lg bg-[#374151] border border-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                                <svg 
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                                    fill="none" 
-                                    stroke="currentColor" 
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path 
-                                        strokeLinecap="round" 
-                                        strokeLinejoin="round" 
-                                        strokeWidth={2} 
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
-                                    />
-                                </svg>
-                            </div>
-                            <CustomSelect
-                                value={selectedCategory}
-                                onChange={setSelectedCategory}
-                                options={categoryOptions}
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
+        switch (category) {
+          case 'brand':
+            if (!selectedValues.some(value => component.company?.includes(value))) {
+              return false;
+            }
+            break;
+          case 'vram':
+            if (component.type === 'gpu' && !selectedValues.includes(component.vram)) {
+              return false;
+            }
+            break;
+          // Add more cases as needed
+        }
+      }
 
-            <div className="container mx-auto px-4">
-                <div className="flex gap-6">
-                    {/* Filters Sidebar */}
-                    <div className="w-64 flex-shrink-0">
-                        <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto custom-scrollbar">
-                            <div className="space-y-4 pr-4 border-r border-gray-700">
-                                {/* Price Range */}
-                                <div className="bg-gradient-to-br from-[#1F2937] to-[#111827] p-4 rounded-lg border border-gray-800">
-                                    <h3 className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 font-medium mb-4">
-                                        Price Range
-                                    </h3>
-                                    <Slider
-                                        value={priceRange}
-                                        onChange={setPriceRange}
-                                        min={0}
-                                        max={200000}
-                                        step={5000}
-                                    />
-                                    <div className="flex justify-between mt-2 text-sm text-gray-400">
-                                        <span>₹{priceRange[0].toLocaleString()}</span>
-                                        <span>₹{priceRange[1].toLocaleString()}</span>
-                                    </div>
-                                </div>
+      return true;
+    });
+  };
 
-                                {/* Dynamic Filters */}
-                                {Object.entries(dynamicFilters).map(([key, filter]) => (
-                                    <div key={key} className="bg-gradient-to-br from-[#1F2937] to-[#111827] p-4 rounded-lg border border-gray-800">
-                                        <h3 className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 font-medium mb-4">
-                                            {filter.label}
-                                        </h3>
-                                        <div className="space-y-1">
-                                            {filter.options.map(option => (
-                                                <label 
-                                                    key={option.value} 
-                                                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#374151] transition-colors cursor-pointer text-gray-300 group"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedFilters[key]?.includes(option.value) || false}
-                                                        onChange={(e) => {
-                                                            setSelectedFilters(prev => {
-                                                                const current = prev[key] || [];
-                                                                return {
-                                                                    ...prev,
-                                                                    [key]: e.target.checked
-                                                                        ? [...current, option.value]
-                                                                        : current.filter(v => v !== option.value)
-                                                                };
-                                                            });
-                                                        }}
-                                                        className="rounded border-gray-600 bg-[#374151] text-blue-500 focus:ring-offset-[#1F2937]"
-                                                    />
-                                                    <span className="text-sm flex-1 group-hover:text-white transition-colors">
-                                                        {option.label}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
-                                                        ({option.count})
-                                                    </span>
-                                                </label>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Main Content */}
-                    <div className="flex-1 py-6">
-                        {/* Sort Bar */}
-                        <div className="flex justify-between items-center mb-6 bg-gradient-to-r from-[#1F2937] to-[#111827] p-4 rounded-lg border border-gray-800">
-                            <p className="text-gray-400">
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 font-medium">
-                                    {filteredComponents.length}
-                                </span> items found
-                            </p>
-                            <button
-                                onClick={() => setSortBy(prev => 
-                                    prev === 'price-asc' ? 'price-desc' : 'price-asc'
-                                )}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-700 hover:bg-[#374151] hover:text-blue-400 transition-all"
-                            >
-                                <ArrowUpDown className="w-4 h-4" />
-                                <span>Sort by price</span>
-                            </button>
-                        </div>
-
-                        {/* Component List */}
-                        <div className="space-y-4">
-                            {filteredComponents.map((component) => (
-                                <div
-                                    key={component.id}
-                                    className="bg-gradient-to-r from-[#1F2937] to-[#111827] rounded-lg shadow-lg hover:shadow-xl transition-all p-4 border border-gray-800 group"
-                                >
-                                    <div className="flex gap-4">
-                                        {/* Image and Basic Info - Clickable */}
-                                        <Link 
-                                            href={`/product-insights/${component.id}`}
-                                            className="flex gap-4 flex-1"
-                                        >
-                                            {/* Image */}
-                                            <div className="w-32 h-32 relative flex-shrink-0">
-                                                <Image
-                                                    src={component.image || '/images/placeholder.jpg'}
-                                                    alt={component.name}
-                                                    fill
-                                                    className="object-contain"
-                                                />
-                                            </div>
-
-                                            {/* Details */}
-                                            <div className="flex-1 flex justify-between">
-                                                <div>
-                                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">{component.name}</h3>
-                                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                        {component.company}
-                                                    </p>
-                                                    
-                                                    {/* Quick Specs */}
-                                                    <div className="space-y-1">
-                                                        {'vram' in component && (
-                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                                <span className="text-gray-500">VRAM:</span> {component.vram}
-                                                            </p>
-                                                        )}
-                                                        {'cores' in component && (
-                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                                <span className="text-gray-500">Cores/Threads:</span> {component.cores}/{component.threads}
-                                                            </p>
-                                                        )}
-                                                        {'capacity' in component && (
-                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                                <span className="text-gray-500">Capacity:</span> {component.capacity}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex flex-col items-end justify-between">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="text-right">
-                                                            <p className="text-xl font-bold text-gray-900 dark:text-white">₹{component.price.toLocaleString()}</p>
-                                                            <p className="text-sm text-gray-500">{component.availability}</p>
-                                                        </div>
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                toggleFavorite(component);
-                                                            }}
-                                                            className={`p-2 rounded-lg transition-colors ${
-                                                                isComponentFavorite(component.id) 
-                                                                    ? 'text-red-500 bg-red-50 dark:bg-red-900/20' 
-                                                                    : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
-                                                            }`}
-                                                        >
-                                                            <Heart 
-                                                                className={`w-5 h-5 ${
-                                                                    isComponentFavorite(component.id) ? 'fill-current' : ''
-                                                                }`} 
-                                                            />
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                                                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                                                        <span>{component.rating}</span>
-                                                        <span>•</span>
-                                                        <span>{component.reviews} reviews</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </Link>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* PC Builder Button - Fixed at the bottom right */}
-            <Link 
-                href="/pcBuilder" 
-                className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 flex items-center gap-2 hover:scale-105 transform"
-            >
-                <span>PC Builder</span>
-                <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    className="h-5 w-5" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                >
-                    <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                </svg>
-            </Link>
+  return (
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 pt-20">
+      <div className="container mx-auto px-4 py-8">
+        {/* Search and Filter Bar */}
+        <div className="flex gap-4 mb-8">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              placeholder="Search components..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border dark:bg-gray-800 dark:border-gray-700"
+            />
+            <FiSearch className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          </div>
+          
+          {/* Component Type Selector */}
+          <select
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value as ComponentType)}
+            className="px-4 py-2 rounded-lg border dark:bg-gray-800 dark:border-gray-700"
+          >
+            <option value="all">All Components</option>
+            <option value="gpu">Graphics Cards</option>
+            <option value="cpu">Processors</option>
+            <option value="ram">Memory</option>
+            <option value="motherboard">Motherboards</option>
+          </select>
         </div>
-    );
+
+        <div className="flex gap-8">
+          {/* Filters Sidebar */}
+          <div className="w-64 flex-shrink-0">
+            {/* Today's Deals Section */}
+            <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+              <h3 className="font-semibold mb-4">Today's Deals</h3>
+              {deals.slice(0, 3).map(deal => (
+                <div key={deal.id} className="mb-4 last:mb-0">
+                  <div className="relative h-32 mb-2 rounded-lg overflow-hidden">
+                    <Image
+                      src={deal.image}
+                      alt={deal.title}
+                      fill
+                      className="object-cover"
+                    />
+                    <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded">
+                      -{deal.discount}
+                    </div>
+                  </div>
+                  <h4 className="font-medium text-sm">{deal.title}</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Ends {formatDate(deal.endDate)}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Dynamic Filters */}
+            <div className="space-y-4">
+              {Object.entries(getRelevantFilters()).map(([category, values]) => (
+                <div key={category} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                  <button
+                    onClick={() => toggleSection(category)}
+                    className="w-full flex justify-between items-center mb-2"
+                  >
+                    <span className="font-semibold capitalize">
+                      {category.replace(/([A-Z])/g, ' $1').trim()}
+                    </span>
+                    {expandedSections[category] ? <FiChevronUp /> : <FiChevronDown />}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {expandedSections[category] && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="space-y-2"
+                      >
+                        {(values as string[]).map((value) => (
+                          <label key={value} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={activeFilters[category]?.includes(value) || false}
+                              onChange={() => toggleFilter(category, value)}
+                              className="rounded border-gray-300 dark:border-gray-600"
+                            />
+                            <span className="text-sm">{value}</span>
+                          </label>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1">
+            {/* Featured Components */}
+            <div className="mb-8">
+              <h2 className="text-xl font-bold mb-4">Featured Components</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredComponents.map(component => (
+                  <div key={component.id} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                    <div className="relative h-48 mb-4">
+                      <Image
+                        src={component.image}
+                        alt={component.name}
+                        fill
+                        className="object-contain"
+                      />
+                      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded">
+                        -{component.discount}
+                      </div>
+                    </div>
+                    <h3 className="font-semibold mb-2">{component.name}</h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-500 line-through">
+                        ₹{formatIndianPrice(component.originalPrice)}
+                      </span>
+                      <span className="text-lg font-bold text-green-500">
+                        ₹{formatIndianPrice(component.discountedPrice)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtered Components */}
+            <div className="mt-8">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">All Components</h2>
+                <span className="text-sm text-gray-500">
+                  {getFilteredComponents().length} items found
+                </span>
+              </div>
+              
+              {getFilteredComponents().length === 0 ? (
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center">
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No components found matching your criteria
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {getFilteredComponents().map((component) => (
+                    <div key={component.id} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow hover:shadow-lg transition-shadow">
+                      <div className="relative h-48 mb-4">
+                        <Image
+                          src={component.image || '/images/placeholder.jpg'}
+                          alt={component.name}
+                          fill
+                          className="object-contain"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="font-semibold text-lg">{component.name}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {component.company}
+                        </p>
+                        {component.type === 'gpu' && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            VRAM: {component.vram}
+                          </p>
+                        )}
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-lg font-bold text-green-500">
+                            ₹{formatIndianPrice(component.price)}
+                          </span>
+                          {component.originalPrice && component.originalPrice > component.price && (
+                            <>
+                              <span className="text-sm text-gray-500 line-through">
+                                ₹{formatIndianPrice(component.originalPrice)}
+                              </span>
+                              <span className="text-sm text-green-500">
+                                {Math.round(((component.originalPrice - component.price) / component.originalPrice) * 100)}% off
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
