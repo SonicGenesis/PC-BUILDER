@@ -431,6 +431,28 @@ export default function BrowsePage() {
                     </div>
                 </div>
             </div>
+
+            {/* PC Builder Button - Fixed at the bottom right */}
+            <Link 
+                href="/pcBuilder" 
+                className="fixed bottom-8 right-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 flex items-center gap-2"
+            >
+                <span>PC Builder</span>
+                <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className="h-5 w-5" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                >
+                    <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                </svg>
+            </Link>
         </div>
     );
 }
