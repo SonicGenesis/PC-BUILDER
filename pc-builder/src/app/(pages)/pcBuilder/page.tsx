@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { graphicsCards } from '../../../../data/PC.GRAPHICCARDS';
 import { processors } from '../../../../data/PC.PROCESSORS';
@@ -453,50 +453,25 @@ const getRecommendationMatch = (component: PCComponent, build: PCBuild): number 
 };
 
 export default function PcBuilderScreen() {
-  // Convert our data to the PCComponent format
-  const availableComponents: PCComponent[] = [
-    ...graphicsCards.map(card => ({
-      id: card.id,
-      name: card.name,
-      price: card.price,
-      company: card.company,
-      type: 'gpu' as ComponentType,
-      image: card.image
-    })),
-    ...processors.map(cpu => ({
-      id: cpu.id,
-      name: cpu.name,
-      price: cpu.price,
-      company: cpu.company,
-      type: 'cpu' as ComponentType,
-      image: cpu.image
-    })),
-    ...motherboards.map((mb, index) => ({
-      id: `mb-${index + 1}`,  // Generate ID using index
-      name: mb.name,
-      price: mb.price,
-      company: mb.company,
-      type: 'motherboard' as ComponentType,
-      image: mb.image
-    })),
-    ...ramModules.map((ram, index) => ({
-      id: `ram-${index + 1}`,  // Generate ID using index
-      name: ram.name,
-      price: ram.price,
-      company: ram.company,
-      type: 'ram' as ComponentType,
-      image: ram.image
-    }))
-  ];
-
   const [builds, setBuilds] = useState<PCBuild[]>([]);
+  const { showDialog } = useDialog();
+  const [availableComponents, setAvailableComponents] = useState<PCComponent[]>([]);
+
+  // Initialize availableComponents in useEffect
+  useEffect(() => {
+    const components: PCComponent[] = [
+      ...graphicsCards.map(c => ({ ...c, type: 'gpu' as const })),
+      ...processors.map(c => ({ ...c, type: 'cpu' as const })),
+      ...motherboards.map(c => ({ ...c, type: 'motherboard' as const })),
+      ...ramModules.map(c => ({ ...c, type: 'ram' as const }))
+    ];
+    setAvailableComponents(components);
+  }, []);
 
   const { favorites, toggleFavorite } = useFavorites();
 
   const [editingBuildId, setEditingBuildId] = useState<string | null>(null);
   const [editingBuildName, setEditingBuildName] = useState('');
-
-  const { showDialog } = useDialog();
 
   const [expandedCategories, setExpandedCategories] = useState<CategoryState>({
     gpu: true,
@@ -510,111 +485,6 @@ export default function PcBuilderScreen() {
       ...prev,
       [category]: !prev[category]
     }));
-  };
-
-  const handleDragEnd = (result: DragDropResult) => {
-    if (!result.destination) return;
-
-    const { destination, draggableId } = result;
-
-    // Handle dropping component into a build
-    if (destination.droppableId.startsWith('build-')) {
-      const originalId = draggableId.startsWith('fav-') ? draggableId.slice(4) : draggableId;
-      
-      const component = availableComponents.find(c => c.id === originalId);
-      if (!component) return;
-
-      const buildIndex = builds.findIndex(b => b.id === destination.droppableId);
-      if (buildIndex === -1) return;
-
-      const updatedBuilds = [...builds];
-      const build = updatedBuilds[buildIndex];
-      
-      // Calculate new total if this component is added
-      const existingComponent = build.components[component.type as keyof typeof build.components];
-      const newTotal = calculateBuildPrice(build) - (existingComponent?.price || 0) + component.price;
-
-      // Check if new total exceeds budget
-      if (newTotal > build.budget) {
-        showDialog({
-          type: 'confirm',
-          title: 'Budget Exceeded',
-          message: (
-            <div className="space-y-4">
-              <p>Adding this component will exceed your budget by ₹{(newTotal - build.budget).toLocaleString()}.</p>
-              <p>Would you like to:</p>
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    // Increase budget
-                    setBuilds(prev => prev.map(b => 
-                      b.id === build.id 
-                        ? { ...b, budget: newTotal }
-                        : b
-                    ));
-                    // Add component
-                    build.components[component.type as keyof typeof build.components] = component;
-                    setBuilds(updatedBuilds);
-                  }}
-                  className="w-full text-left px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white"
-                >
-                  Increase budget to ₹{newTotal.toLocaleString()}
-                </button>
-                <button
-                  onClick={() => {
-                    // Add component without increasing budget
-                    build.components[component.type as keyof typeof build.components] = component;
-                    setBuilds(updatedBuilds);
-                  }}
-                  className="w-full text-left px-4 py-2 rounded bg-gray-500 hover:bg-gray-600 text-white"
-                >
-                  Continue without budget restriction (Estimate total cost)
-                </button>
-                <button
-                  onClick={() => {
-                    // Do nothing, keep current state
-                  }}
-                  className="w-full text-left px-4 py-2 rounded bg-red-500 hover:bg-red-600 text-white"
-                >
-                  Cancel and maintain current budget
-                </button>
-              </div>
-            </div>
-          )
-        });
-        return;
-      }
-
-      // If component type already exists in build
-      if (build.components[component.type as keyof typeof build.components]) {
-        const existingComponent = build.components[component.type as keyof typeof build.components];
-        showDialog({
-          type: 'confirm',
-          title: 'Replace Component',
-          message: `Do you want to replace "${existingComponent?.name}" with "${component.name}"?`,
-          onConfirm: () => {
-            build.components[component.type as keyof typeof build.components] = component;
-            setBuilds(updatedBuilds);
-            showDialog({
-              type: 'success',
-              title: 'Component Replaced',
-              message: `Successfully replaced with ${component.name} in ${build.name}`
-            });
-          }
-        });
-        return;
-      }
-
-      // Add component to build if there's no existing component
-      build.components[component.type as keyof typeof build.components] = component;
-      setBuilds(updatedBuilds);
-      
-      showDialog({
-        type: 'success',
-        title: 'Component Added',
-        message: `${COMPONENT_DISPLAY_NAMES[component.type]} "${component.name}" has been added to ${build.name}`
-      });
-    }
   };
 
   const addNewBuild = () => {
@@ -1030,6 +900,279 @@ export default function PcBuilderScreen() {
       percentage: recommendation.percentage,
       targetBudget: (build.budget * recommendation.percentage) / 100
     };
+  };
+
+  // Move the helper functions inside the component
+  const createBuildWithComponent = (component: PCComponent) => {
+    showDialog({
+      type: 'confirm',
+      title: 'Select Build Purpose',
+      message: (
+        <div className="space-y-4">
+          <p className="text-gray-600 dark:text-gray-400">
+            Choose the primary purpose for your PC build with {component.name}:
+          </p>
+          <div className="space-y-3">
+            {BUILD_PURPOSES.map((purpose) => (
+              <button
+                key={purpose.id}
+                onClick={() => showBudgetSelectionWithComponent(purpose, component)}
+                className="w-full flex items-center gap-4 px-4 py-3 rounded-lg 
+                  bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
+                  dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="text-gray-600 dark:text-gray-300">
+                  {purpose.icon}
+                </div>
+                <div className="flex-1 text-left">
+                  <h3 className="font-medium text-gray-800 dark:text-gray-200">
+                    {purpose.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Estimated: ₹{purpose.minBudget.toLocaleString()} - 
+                    {purpose.maxBudget ? `₹${purpose.maxBudget.toLocaleString()}` : 'Above'}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    });
+  };
+
+  const showBudgetSelectionWithComponent = (purpose: BuildPurpose, component: PCComponent) => {
+    showDialog({
+      type: 'confirm',
+      title: 'Budget Flexibility',
+      message: (
+        <div className="space-y-4">
+          <p className="text-gray-600 dark:text-gray-400">
+            How flexible is your budget for this {purpose.name.toLowerCase()}?
+          </p>
+          <div className="space-y-3">
+            {BUDGET_FLEXIBILITY_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => {
+                  showDialog({
+                    type: 'confirm',
+                    title: `Select Budget for ${purpose.name}`,
+                    message: (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 mb-4">
+                          {purpose.icon}
+                          <div>
+                            <h3 className="font-medium text-lg">{purpose.name}</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {purpose.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            {option.icon}
+                            <span className="font-medium text-blue-700 dark:text-blue-300">
+                              {option.label}
+                            </span>
+                          </div>
+                          <p className="text-sm text-blue-600 dark:text-blue-400">
+                            {option.description}
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          {BUDGET_RANGES.map((range) => (
+                            <button
+                              key={range.value}
+                              onClick={() => {
+                                const newBuild: PCBuild = {
+                                  id: `build-${builds.length + 1}`,
+                                  name: `${purpose.name} ${builds.length + 1}`,
+                                  budget: range.value,
+                                  purpose: purpose.id,
+                                  budgetFlexibility: option.id as BudgetFlexibility,
+                                  components: {
+                                    [component.type]: component
+                                  }
+                                };
+                                setBuilds((prev: PCBuild[]) => [...prev, newBuild]);
+                                showDialog({
+                                  type: 'success',
+                                  title: 'Build Created',
+                                  message: `Created new ${purpose.name.toLowerCase()} with ${option.label.toLowerCase()} budget of ₹${range.value.toLocaleString()}`
+                                });
+                              }}
+                              className="w-full text-left px-4 py-3 rounded-lg
+                                bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
+                                dark:hover:bg-gray-600 transition-colors"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span>{range.label}</span>
+                                {(range.value >= purpose.minBudget && (!purpose.maxBudget || range.value <= purpose.maxBudget)) && (
+                                  <span className="text-green-500 text-sm">Recommended</span>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  });
+                }}
+                className="w-full flex items-center gap-4 px-4 py-3 rounded-lg 
+                  bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
+                  dark:hover:bg-gray-600 transition-colors"
+              >
+                <div className="text-gray-600 dark:text-gray-300">
+                  {option.icon}
+                </div>
+                <div className="flex-1 text-left">
+                  <h3 className="font-medium text-gray-800 dark:text-gray-200">
+                    {option.label}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {option.description}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+    });
+  };
+
+  const handleDragEnd = (result: DragDropResult) => {
+    if (!result.destination) return;
+
+    const { destination, draggableId } = result;
+    const originalId = draggableId.startsWith('fav-') ? draggableId.slice(4) : draggableId;
+    const component = availableComponents.find((c: PCComponent) => c.id === originalId);
+    
+    if (!component) return;
+
+    // If no builds exist, start the build creation process
+    if (builds.length === 0) {
+      createBuildWithComponent(component);
+      return;
+    }
+
+    // Handle dropping component into a build
+    if (destination.droppableId.startsWith('build-')) {
+      const buildIndex = builds.findIndex(b => b.id === destination.droppableId);
+      if (buildIndex === -1) return;
+
+      const updatedBuilds = [...builds];
+      const build = updatedBuilds[buildIndex];
+      
+      // Calculate new total if this component is added
+      const existingComponent = build.components[component.type];
+      const newTotal = calculateBuildPrice(build) - (existingComponent?.price || 0) + component.price;
+
+      // Check if new total exceeds budget
+      if (newTotal > build.budget) {
+        showDialog({
+          type: 'confirm',
+          title: 'Budget Exceeded',
+          message: (
+            <div className="space-y-4">
+              <p>Adding this component will exceed your budget by ₹{(newTotal - build.budget).toLocaleString()}.</p>
+              <p>Would you like to:</p>
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    // Increase budget
+                    const newBuilds = builds.map(b => 
+                      b.id === build.id 
+                        ? { ...b, budget: newTotal }
+                        : b
+                    );
+                    setBuilds(newBuilds);
+                    // Add component
+                    build.components[component.type] = component;
+                    setBuilds(updatedBuilds);
+                    showDialog({
+                      type: 'success',
+                      title: 'Budget Updated',
+                      message: `Budget increased and ${component.name} added to build`
+                    });
+                  }}
+                  className="w-full text-left px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white"
+                >
+                  Increase budget to ₹{newTotal.toLocaleString()}
+                </button>
+                <button
+                  onClick={() => {
+                    // Add component without increasing budget
+                    build.components[component.type] = component;
+                    setBuilds(updatedBuilds);
+                    showDialog({
+                      type: 'success',
+                      title: 'Component Added',
+                      message: `${component.name} added to build (over budget)`
+                    });
+                  }}
+                  className="w-full text-left px-4 py-2 rounded bg-gray-500 hover:bg-gray-600 text-white"
+                >
+                  Add anyway (Exceed budget)
+                </button>
+                <button
+                  onClick={() => {
+                    showDialog({
+                      type: 'success',
+                      title: 'Action Cancelled',
+                      message: 'Component not added to maintain budget'
+                    });
+                  }}
+                  className="w-full text-left px-4 py-2 rounded bg-red-500 hover:bg-red-600 text-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )
+        });
+        return;
+      }
+
+      // If component type already exists in build
+      if (build.components[component.type]) {
+        showDialog({
+          type: 'confirm',
+          title: 'Replace Component',
+          message: (
+            <div className="space-y-4">
+              <p>Do you want to replace:</p>
+              <p className="font-medium text-blue-500">{build.components[component.type]?.name}</p>
+              <p>with:</p>
+              <p className="font-medium text-green-500">{component.name}</p>
+            </div>
+          ),
+          onConfirm: () => {
+            build.components[component.type] = component;
+            setBuilds(updatedBuilds);
+            showDialog({
+              type: 'success',
+              title: 'Component Replaced',
+              message: `Successfully replaced with ${component.name} in ${build.name}`
+            });
+          }
+        });
+        return;
+      }
+
+      // Add component to build if there's no existing component
+      build.components[component.type] = component;
+      setBuilds(updatedBuilds);
+      
+      showDialog({
+        type: 'success',
+        title: 'Component Added',
+        message: `${COMPONENT_DISPLAY_NAMES[component.type]} "${component.name}" has been added to ${build.name}`
+      });
+    }
   };
 
   return (

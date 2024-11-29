@@ -77,6 +77,168 @@ type BuildRecommendation = {
   details: string[];
 };
 
+type GamePerformance = {
+  name: string;
+  fps1080p: number;
+  fps1440p: number;
+  fps4k: number;
+  settings: 'Ultra' | 'High' | 'Medium' | 'Low';
+  rayTracing?: boolean;
+  dlss?: boolean;
+};
+
+type GPUTier = 'Entry' | 'Mid-Range' | 'High-End' | 'Enthusiast';
+
+// Add this function to determine GPU tier
+const getGPUTier = (gpu: GPUComponent): GPUTier => {
+  const price = gpu.price;
+  if (price > 150000) return 'Enthusiast';
+  if (price > 80000) return 'High-End';
+  if (price > 40000) return 'Mid-Range';
+  return 'Entry';
+};
+
+// Add this function to get game performance data
+const getGamePerformance = (gpu: GPUComponent): GamePerformance[] => {
+  const tier = getGPUTier(gpu);
+  
+  const games: GamePerformance[] = [
+    {
+      name: "Cyberpunk 2077",
+      fps1080p: tier === 'Enthusiast' ? 140 : tier === 'High-End' ? 100 : tier === 'Mid-Range' ? 60 : 30,
+      fps1440p: tier === 'Enthusiast' ? 100 : tier === 'High-End' ? 70 : tier === 'Mid-Range' ? 45 : 20,
+      fps4k: tier === 'Enthusiast' ? 60 : tier === 'High-End' ? 40 : tier === 'Mid-Range' ? 25 : 15,
+      settings: tier === 'Enthusiast' || tier === 'High-End' ? 'Ultra' : tier === 'Mid-Range' ? 'High' : 'Medium',
+      rayTracing: tier === 'Enthusiast' || tier === 'High-End',
+      dlss: true
+    },
+    {
+      name: "GTA V",
+      fps1080p: tier === 'Enthusiast' ? 165 : tier === 'High-End' ? 140 : tier === 'Mid-Range' ? 100 : 60,
+      fps1440p: tier === 'Enthusiast' ? 140 : tier === 'High-End' ? 100 : tier === 'Mid-Range' ? 70 : 40,
+      fps4k: tier === 'Enthusiast' ? 90 : tier === 'High-End' ? 60 : tier === 'Mid-Range' ? 40 : 25,
+      settings: tier === 'Enthusiast' || tier === 'High-End' ? 'Ultra' : tier === 'Mid-Range' ? 'High' : 'Medium'
+    },
+    {
+      name: "Red Dead Redemption 2",
+      fps1080p: tier === 'Enthusiast' ? 150 : tier === 'High-End' ? 120 : tier === 'Mid-Range' ? 80 : 45,
+      fps1440p: tier === 'Enthusiast' ? 120 : tier === 'High-End' ? 90 : tier === 'Mid-Range' ? 60 : 30,
+      fps4k: tier === 'Enthusiast' ? 70 : tier === 'High-End' ? 50 : tier === 'Mid-Range' ? 35 : 20,
+      settings: tier === 'Enthusiast' || tier === 'High-End' ? 'Ultra' : tier === 'Mid-Range' ? 'High' : 'Medium',
+      dlss: true
+    },
+    // Add more games as needed
+  ];
+
+  return games;
+};
+
+// Add these new types
+type RAMPerformance = {
+  useCase: string;
+  performance: string;
+  benefits: string[];
+  recommendedWith?: string[];
+  limitations?: string[];
+};
+
+type CPUWorkload = {
+  name: string;
+  score: number;
+  description: string;
+  recommendedRam?: string;
+  multiThread?: boolean;
+  benefits: string[];
+};
+
+// Add these functions after your existing ones
+const getRAMPerformance = (ram: RAMComponent): RAMPerformance[] => {
+  const capacity = parseInt(ram.capacity);
+  const speed = parseInt(ram.speed);
+  
+  return [
+    {
+      useCase: "Gaming",
+      performance: capacity >= 32 ? "Excellent" : capacity >= 16 ? "Good" : "Basic",
+      benefits: [
+        `${capacity >= 32 ? "Perfect" : "Sufficient"} for modern gaming`,
+        `${speed >= 3600 ? "Excellent" : "Good"} for reducing game stuttering`,
+        `${capacity >= 16 ? "Allows multiple games and apps" : "Basic multitasking"} while gaming`,
+      ],
+      recommendedWith: [
+        "RTX 4080/4090 for 4K gaming",
+        "Latest gen Ryzen/Intel CPUs",
+      ],
+      limitations: capacity < 16 ? ["May struggle with newer games"] : undefined
+    },
+    {
+      useCase: "Content Creation",
+      performance: capacity >= 64 ? "Excellent" : capacity >= 32 ? "Good" : "Basic",
+      benefits: [
+        `${capacity >= 64 ? "Seamless" : "Decent"} video editing experience`,
+        `${capacity >= 32 ? "Smooth" : "Basic"} 3D rendering capabilities`,
+        `${speed >= 3600 ? "Fast" : "Standard"} file processing`,
+      ],
+      recommendedWith: [
+        "Workstation CPUs with high core count",
+        "Professional GPUs for rendering",
+      ]
+    },
+    {
+      useCase: "Multitasking",
+      performance: capacity >= 32 ? "Excellent" : capacity >= 16 ? "Good" : "Basic",
+      benefits: [
+        `Can handle ${capacity >= 32 ? "numerous" : "multiple"} applications simultaneously`,
+        `${speed >= 3600 ? "Quick" : "Standard"} application switching`,
+        `${capacity >= 16 ? "Smooth" : "Basic"} browser performance with multiple tabs`,
+      ]
+    }
+  ];
+};
+
+const getCPUWorkloads = (cpu: CPUComponent): CPUWorkload[] => {
+  const hasHighThreads = cpu.threads >= 16;
+  const hasHighCores = cpu.cores >= 8;
+  const isHighEnd = cpu.price > 30000;
+  
+  return [
+    {
+      name: "Gaming Performance",
+      score: hasHighCores ? 9.5 : 8.0,
+      description: `${hasHighCores ? "Excellent" : "Good"} for modern gaming`,
+      recommendedRam: hasHighCores ? "32GB DDR4-3600" : "16GB DDR4-3200",
+      benefits: [
+        `${hasHighCores ? "Superior" : "Good"} frame rates in CPU-intensive games`,
+        `${hasHighThreads ? "Excellent" : "Decent"} for streaming while gaming`,
+        `${isHighEnd ? "Minimal" : "Low"} gaming latency`,
+      ]
+    },
+    {
+      name: "Content Creation",
+      score: hasHighThreads ? 9.0 : 7.5,
+      multiThread: true,
+      recommendedRam: "32GB or higher",
+      description: `${hasHighThreads ? "Professional" : "Capable"} content creation`,
+      benefits: [
+        `${hasHighThreads ? "Fast" : "Standard"} video rendering`,
+        `${hasHighCores ? "Excellent" : "Good"} for 3D modeling`,
+        `${hasHighThreads ? "Efficient" : "Basic"} multitasking while rendering`,
+      ]
+    },
+    {
+      name: "Productivity",
+      score: hasHighCores ? 9.0 : 8.0,
+      description: `${hasHighCores ? "Premium" : "Solid"} productivity performance`,
+      recommendedRam: "16GB or higher",
+      benefits: [
+        `${hasHighThreads ? "Seamless" : "Good"} multitasking`,
+        `${hasHighCores ? "Quick" : "Standard"} application loading`,
+        "Smooth system responsiveness",
+      ]
+    }
+  ];
+};
+
 export default function ProductInsightsClient({ id }: { id: string }) {
   const [component, setComponent] = useState<Component | null>(null);
   const [sellers, setSellers] = useState<Seller[]>([]);
@@ -177,11 +339,12 @@ export default function ProductInsightsClient({ id }: { id: string }) {
   const getGamingDetails = () => {
     if (!component) return [];
     if (component.type === 'gpu') {
+      const tier = getGPUTier(component);
       return [
-        'Excellent for high-FPS gaming',
-        'Supports ray tracing',
-        'Great for streaming while gaming',
-        'VR-ready performance'
+        `${tier} level gaming performance`,
+        `Ideal for ${tier === 'Enthusiast' ? '4K' : tier === 'High-End' ? '1440p' : '1080p'} gaming`,
+        component.vram >= '8' ? 'Excellent for high-texture games' : 'Good for most modern games',
+        tier === 'Enthusiast' || tier === 'High-End' ? 'Ray tracing capable' : 'Standard rendering',
       ];
     }
     return ['Good gaming performance'];
@@ -380,6 +543,193 @@ export default function ProductInsightsClient({ id }: { id: string }) {
             ))}
           </div>
         </div>
+
+        {component.type === 'gpu' && (
+          <div className="bg-[#1F2937] rounded-xl p-8 mb-8">
+            <h2 className="text-2xl font-bold text-white mb-6">Gaming Performance</h2>
+            <div className="space-y-6">
+              {getGamePerformance(component).map((game) => (
+                <div key={game.name} className="bg-[#374151] rounded-lg p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-xl font-bold text-white">{game.name}</h3>
+                    <div className="flex items-center gap-2">
+                      {game.rayTracing && (
+                        <span className="px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded-full">
+                          Ray Tracing
+                        </span>
+                      )}
+                      {game.dlss && (
+                        <span className="px-2 py-1 bg-blue-500/10 text-blue-400 text-xs rounded-full">
+                          DLSS
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">1080p</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold text-white">{game.fps1080p}</span>
+                        <span className="text-gray-400">FPS</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">1440p</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold text-white">{game.fps1440p}</span>
+                        <span className="text-gray-400">FPS</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">4K</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold text-white">{game.fps4k}</span>
+                        <span className="text-gray-400">FPS</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">Recommended Settings:</span>
+                    <span className={`text-sm px-2 py-1 rounded-full ${
+                      game.settings === 'Ultra' ? 'bg-purple-500/10 text-purple-400' :
+                      game.settings === 'High' ? 'bg-blue-500/10 text-blue-400' :
+                      game.settings === 'Medium' ? 'bg-yellow-500/10 text-yellow-400' :
+                      'bg-red-500/10 text-red-400'
+                    }`}>
+                      {game.settings}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {component.type === 'ram' && (
+          <div className="bg-[#1F2937] rounded-xl p-8 mb-8">
+            <h2 className="text-2xl font-bold text-white mb-6">Performance Analysis</h2>
+            <div className="space-y-6">
+              {getRAMPerformance(component).map((perf) => (
+                <div key={perf.useCase} className="bg-[#374151] rounded-lg p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-1">{perf.useCase}</h3>
+                      <span className={`text-sm px-2 py-1 rounded-full ${
+                        perf.performance === 'Excellent' ? 'bg-green-500/10 text-green-400' :
+                        perf.performance === 'Good' ? 'bg-blue-500/10 text-blue-400' :
+                        'bg-yellow-500/10 text-yellow-400'
+                      }`}>
+                        {perf.performance} Performance
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-400 mb-2">Benefits</h4>
+                      <ul className="space-y-2">
+                        {perf.benefits.map((benefit, index) => (
+                          <li key={index} className="text-sm text-gray-300 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
+                            {benefit}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {perf.recommendedWith && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-400 mb-2">Recommended Pairings</h4>
+                        <ul className="space-y-2">
+                          {perf.recommendedWith.map((rec, index) => (
+                            <li key={index} className="text-sm text-gray-300 flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-green-400 rounded-full" />
+                              {rec}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {perf.limitations && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-400 mb-2">Limitations</h4>
+                        <ul className="space-y-2">
+                          {perf.limitations.map((limitation, index) => (
+                            <li key={index} className="text-sm text-gray-300 flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />
+                              {limitation}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {component.type === 'cpu' && (
+          <div className="bg-[#1F2937] rounded-xl p-8 mb-8">
+            <h2 className="text-2xl font-bold text-white mb-6">Workload Performance</h2>
+            <div className="space-y-6">
+              {getCPUWorkloads(component).map((workload) => (
+                <div key={workload.name} className="bg-[#374151] rounded-lg p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-white mb-1">{workload.name}</h3>
+                      <p className="text-sm text-gray-400">{workload.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {workload.multiThread && (
+                        <span className="px-2 py-1 bg-purple-500/10 text-purple-400 text-xs rounded-full">
+                          Multi-threaded
+                        </span>
+                      )}
+                      <span className="text-2xl font-bold text-white">{workload.score}/10</span>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full"
+                        style={{ width: `${workload.score * 10}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-400 mb-2">Benefits</h4>
+                      <ul className="space-y-2">
+                        {workload.benefits.map((benefit, index) => (
+                          <li key={index} className="text-sm text-gray-300 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 bg-blue-400 rounded-full" />
+                            {benefit}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {workload.recommendedRam && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-400">Recommended RAM:</span>
+                        <span className="text-sm px-2 py-1 rounded-full bg-green-500/10 text-green-400">
+                          {workload.recommendedRam}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
