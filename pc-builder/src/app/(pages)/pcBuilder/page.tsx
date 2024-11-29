@@ -1335,7 +1335,7 @@ export default function PcBuilderScreen() {
                           
                           <div className={`
                             overflow-hidden transition-all duration-200 ease-in-out
-                            ${expandedCategories[type as ComponentType] ? 'max-h-[1000px]' : 'max-h-0'}
+                            ${expandedCategories[type as ComponentType] ? 'max-h-[400px]' : 'max-h-0'}
                           `}>
                             {builds.length > 0 && (
                               <div className="px-4 py-2 bg-gray-800">
@@ -1361,7 +1361,7 @@ export default function PcBuilderScreen() {
                                 })}
                               </div>
                             )}
-                            <div className="space-y-2 p-2">
+                            <div className="space-y-2 p-2 overflow-y-auto max-h-[350px] scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
                               {components.map((component, index) => (
                                 <Draggable
                                   key={component.id}
