@@ -1,12 +1,12 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { graphicsCards } from '../../../../data/PC.GRAPHICCARDS';
 import { processors } from '../../../../data/PC.PROCESSORS';
 import { motherboards } from '../../../../data/PC.MOTHERBOARDS';
 import { ramModules } from '../../../../data/PC.RAM';
 import Image from 'next/image';
-import { FiEdit2, FiHeart, FiPlus, FiX, FiChevronDown, FiChevronRight, FiMonitor, FiPlay, FiCpu, FiCode, FiFilm, FiLock, FiUnlock, FiMaximize2 } from 'react-icons/fi';
+import { FiEdit2, FiHeart, FiPlus, FiX, FiChevronDown, FiChevronRight, FiMonitor, FiPlay, FiCpu, FiCode, FiFilm, FiLock, FiUnlock, FiMaximize2, FiChevronLeft } from 'react-icons/fi';
 import { HiHeart } from 'react-icons/hi';
 import { useDialog } from '@/app/components/GlobalDialog';
 import { useFavorites } from '@/store/useFavorites';
@@ -1284,16 +1284,64 @@ export default function PcBuilderScreen() {
     </div>
   );
 
+  // Keep these state declarations
+  const [sidebarWidth, setSidebarWidth] = useState(320); // Default width 320px
+  const [isResizing, setIsResizing] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const minWidth = 280; // Minimum sidebar width
+  const maxWidth = 480; // Maximum sidebar width
+
+  // Keep these handlers
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (isResizing) {
+      const newWidth = e.clientX;
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        setSidebarWidth(newWidth);
+      }
+    }
+  }, [isResizing]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, handleMouseMove, handleMouseUp]);
+
   return (
     <div className="min-h-screen w-full pt-20 pb-16 bg-[#111827]">
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-6 px-6 pt-4">
-          {/* Left Sidebar */}
-          <div className="w-80 flex-shrink-0 flex flex-col h-[calc(100vh-6rem)] space-y-4">
-            {/* Available Components Section */}
+        <div className="flex gap-6 px-6 pt-4 relative">
+          {/* Sidebar Container */}
+          <div 
+            className="w-80 flex-shrink-0 flex flex-col h-[calc(100vh-6rem)] space-y-4 relative"
+            style={{ width: sidebarWidth }}
+          >
+            {/* Component Library Section */}
             <div className="flex-1 bg-[#1F2937] rounded-xl overflow-hidden flex flex-col">
               <div className="py-4 px-6 border-b border-gray-700 bg-[#1F2937] sticky top-0 z-10">
-                <h2 className="font-bold text-white text-xl">AVAILABLE COMPONENTS</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 text-xl">
+                    COMPONENT LIBRARY
+                  </h2>
+                  <div className="px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">
+                    <span className="text-xs font-medium text-blue-400">
+                      Drag & Drop
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-400 mt-1">
+                  Browse and select from our curated collection of high-performance parts
+                </p>
               </div>
               <div className="p-4 overflow-y-auto flex-1">
                 <Droppable droppableId="components">
@@ -1498,9 +1546,28 @@ export default function PcBuilderScreen() {
             </div>
 
             {/* Favorites Section */}
-            <div className="flex-1 bg-[#1F2937] rounded-xl overflow-hidden flex flex-col">
+            <div className="flex-1 bg-[#1F2937] rounded-xl overflow-hidden flex flex-col mt-4">
               <div className="py-4 px-6 border-b border-gray-700 bg-[#1F2937] sticky top-0 z-10">
-                <h2 className="font-bold text-white text-xl">FAVORITE COMPONENTS</h2>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h2 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 text-xl">
+                        QUICKPICK VAULT
+                      </h2>
+                      <div className="px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20">
+                        <span className="text-xs font-medium text-purple-400">
+                          Favorites
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Your handpicked collection of preferred components
+                    </p>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {favorites.length} items
+                  </div>
+                </div>
               </div>
               <div className="p-4 overflow-y-auto flex-1">
                 <Droppable droppableId="favorites">
@@ -1572,16 +1639,52 @@ export default function PcBuilderScreen() {
                 </Droppable>
               </div>
             </div>
+
+            {/* Simple resize handle */}
+            <div
+              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50"
+              onMouseDown={() => setIsResizing(true)}
+            />
           </div>
 
-          {/* Main Content - PC Builds */}
-          <div className="flex-1 flex flex-col">
+          {/* Toggle Sidebar Button */}
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full 
+              bg-[#1F2937] hover:bg-[#2D3748] transition-all duration-300
+              ${isSidebarCollapsed ? 'translate-x-0' : 'translate-x-0'}`}
+          >
+            {isSidebarCollapsed ? (
+              <FiChevronRight className="w-5 h-5 text-gray-400" />
+            ) : (
+              <FiChevronLeft className="w-5 h-5 text-gray-400" />
+            )}
+          </button>
+
+          {/* Main Content */}
+          <div className={`flex-1 flex flex-col transition-all duration-300
+            ${isSidebarCollapsed ? 'ml-8' : ''}`}>
             <div className="bg-[#1F2937] p-4 rounded-xl mb-6 sticky top-20 z-10">
               <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-white">PC Builds</h1>
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">
+                      CUSTOM BUILDS
+                    </h1>
+                    <div className="px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20">
+                      <span className="text-xs font-medium text-green-400">
+                        {builds.length} {builds.length === 1 ? 'Build' : 'Builds'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Design and customize your perfect PC configuration
+                  </p>
+                </div>
                 <button
                   onClick={addNewBuild}
-                  className="bg-white text-black px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-100"
+                  className="bg-gradient-to-r from-green-400 to-emerald-400 text-white px-4 py-2 rounded-lg 
+                    flex items-center gap-2 hover:opacity-90 transition-opacity shadow-lg shadow-green-500/20"
                 >
                   <FiPlus /> New Build
                 </button>

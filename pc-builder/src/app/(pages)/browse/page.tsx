@@ -231,27 +231,42 @@ export default function BrowsePage() {
     return (
         <div className="min-h-screen bg-[#111827]">
             {/* Top Search Bar */}
-            <div className="sticky top-0 z-50 bg-[#1F2937] shadow-md">
+            <div className="sticky top-0 z-50 bg-gradient-to-r from-[#1F2937] to-[#111827] shadow-lg border-b border-gray-800">
                 <div className="container mx-auto px-4 py-4">
                     <div className="flex items-center gap-6">
                         {/* Website Logo/Name */}
                         <Link 
                             href="/" 
-                            className="text-xl font-bold text-white hover:text-blue-400 transition-colors flex items-center gap-2"
+                            className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 transition-all flex items-center gap-2"
                         >
-                            <CircuitBoard className="w-6 h-6" />
+                            <CircuitBoard className="w-6 h-6 text-blue-400" />
                             <span>BuildMyPC</span>
                         </Link>
 
                         {/* Search and Category Selection */}
                         <div className="flex flex-1 items-center gap-4">
-                            <input
-                                type="search"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search components..."
-                                className="flex-1 px-4 py-2 rounded-lg bg-[#374151] border-none text-white placeholder-gray-400"
-                            />
+                            <div className="relative flex-1">
+                                <input
+                                    type="search"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Search components..."
+                                    className="w-full px-4 py-2 pl-10 rounded-lg bg-[#374151] border border-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                />
+                                <svg 
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round" 
+                                        strokeWidth={2} 
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+                                    />
+                                </svg>
+                            </div>
                             <CustomSelect
                                 value={selectedCategory}
                                 onChange={setSelectedCategory}
@@ -266,11 +281,13 @@ export default function BrowsePage() {
                 <div className="flex gap-6">
                     {/* Filters Sidebar */}
                     <div className="w-64 flex-shrink-0">
-                        <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-hide">
+                        <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto custom-scrollbar">
                             <div className="space-y-4 pr-4 border-r border-gray-700">
                                 {/* Price Range */}
-                                <div className="bg-[#1F2937] p-4 rounded-lg">
-                                    <h3 className="text-white font-medium mb-4">Price Range</h3>
+                                <div className="bg-gradient-to-br from-[#1F2937] to-[#111827] p-4 rounded-lg border border-gray-800">
+                                    <h3 className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 font-medium mb-4">
+                                        Price Range
+                                    </h3>
                                     <Slider
                                         value={priceRange}
                                         onChange={setPriceRange}
@@ -286,13 +303,15 @@ export default function BrowsePage() {
 
                                 {/* Dynamic Filters */}
                                 {Object.entries(dynamicFilters).map(([key, filter]) => (
-                                    <div key={key} className="bg-[#1F2937] p-4 rounded-lg">
-                                        <h3 className="text-white font-medium mb-4">{filter.label}</h3>
+                                    <div key={key} className="bg-gradient-to-br from-[#1F2937] to-[#111827] p-4 rounded-lg border border-gray-800">
+                                        <h3 className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 font-medium mb-4">
+                                            {filter.label}
+                                        </h3>
                                         <div className="space-y-1">
                                             {filter.options.map(option => (
                                                 <label 
                                                     key={option.value} 
-                                                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#374151] transition-colors cursor-pointer text-gray-300"
+                                                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#374151] transition-colors cursor-pointer text-gray-300 group"
                                                 >
                                                     <input
                                                         type="checkbox"
@@ -310,8 +329,12 @@ export default function BrowsePage() {
                                                         }}
                                                         className="rounded border-gray-600 bg-[#374151] text-blue-500 focus:ring-offset-[#1F2937]"
                                                     />
-                                                    <span className="text-sm flex-1">{option.label}</span>
-                                                    <span className="text-xs text-gray-500">({option.count})</span>
+                                                    <span className="text-sm flex-1 group-hover:text-white transition-colors">
+                                                        {option.label}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
+                                                        ({option.count})
+                                                    </span>
                                                 </label>
                                             ))}
                                         </div>
@@ -324,15 +347,17 @@ export default function BrowsePage() {
                     {/* Main Content */}
                     <div className="flex-1 py-6">
                         {/* Sort Bar */}
-                        <div className="flex justify-between items-center mb-6">
-                            <p className="text-gray-600">
-                                {filteredComponents.length} items found
+                        <div className="flex justify-between items-center mb-6 bg-gradient-to-r from-[#1F2937] to-[#111827] p-4 rounded-lg border border-gray-800">
+                            <p className="text-gray-400">
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 font-medium">
+                                    {filteredComponents.length}
+                                </span> items found
                             </p>
                             <button
                                 onClick={() => setSortBy(prev => 
                                     prev === 'price-asc' ? 'price-desc' : 'price-asc'
                                 )}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-gray-50 hover:text-blue-400 transition-colors"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-700 hover:bg-[#374151] hover:text-blue-400 transition-all"
                             >
                                 <ArrowUpDown className="w-4 h-4" />
                                 <span>Sort by price</span>
@@ -344,7 +369,7 @@ export default function BrowsePage() {
                             {filteredComponents.map((component) => (
                                 <div
                                     key={component.id}
-                                    className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-4"
+                                    className="bg-gradient-to-r from-[#1F2937] to-[#111827] rounded-lg shadow-lg hover:shadow-xl transition-all p-4 border border-gray-800 group"
                                 >
                                     <div className="flex gap-4">
                                         {/* Image and Basic Info - Clickable */}
@@ -435,7 +460,7 @@ export default function BrowsePage() {
             {/* PC Builder Button - Fixed at the bottom right */}
             <Link 
                 href="/pcBuilder" 
-                className="fixed bottom-8 right-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 flex items-center gap-2"
+                className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 flex items-center gap-2 hover:scale-105 transform"
             >
                 <span>PC Builder</span>
                 <svg 
