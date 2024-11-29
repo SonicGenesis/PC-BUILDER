@@ -364,54 +364,98 @@ const checkCompatibility = (build: PCBuild): ComponentNode[] => {
   ];
 };
 
+
+
+// Add this useEffect to handle the guide visibility
+
+
 // Update the CompatibilityTree component
-const CompatibilityTree = ({ nodes }: { nodes: ComponentNode[] }) => {
+const CompatibilityTree = ({ nodes, build }: { nodes: ComponentNode[]; build: PCBuild }) => {
+  const [selectedNode, setSelectedNode] = useState<ComponentNode | null>(null);
+
   return (
-    <TooltipProvider>
-      <div className="absolute left-0 top-0 h-full w-8 flex flex-col items-center">
+    <div className="absolute left-0 top-0 h-full flex">
+      {/* Compatibility Tree */}
+      <div className="w-8 h-full flex flex-col items-center relative z-10">
         {nodes.map((node, index) => (
           <div key={node.type} className="flex-1 relative w-full">
-            {/* Vertical line */}
+            {/* Vertical line with pulsing effect for issues */}
             <div 
               className={`absolute left-1/2 w-0.5 h-full transform -translate-x-1/2
                 ${node.status === 'compatible' ? 'bg-green-500' : 
-                  node.status === 'incompatible' ? 'bg-red-500' : 
-                  node.status === 'pending' ? 'bg-yellow-500' : 
+                  node.status === 'incompatible' ? 'bg-red-500 animate-pulse-fast' : 
+                  node.status === 'pending' ? 'bg-yellow-500 animate-pulse-slow' : 
                   'bg-gray-600'}`}
             />
             
-            {/* Node circle with tooltip */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                  <div 
-                    className={`w-3 h-3 rounded-full cursor-help
-                      ${node.status === 'compatible' ? 'bg-green-500' : 
-                        node.status === 'incompatible' ? 'bg-red-500' : 
-                        node.status === 'pending' ? 'bg-yellow-500' : 
-                        'bg-gray-600'}
-                    `}
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent 
-                side="left"
-                className="bg-gray-900 text-white border-gray-700 z-[99999999]"
-              >
-                <div className="flex items-start gap-2">
-                  <span className={`
-                    w-2 h-2 rounded-full flex-shrink-0 mt-1
-                    ${node.status === 'compatible' ? 'bg-green-500' : 
-                      node.status === 'incompatible' ? 'bg-red-500' : 
-                      node.status === 'pending' ? 'bg-yellow-500' : 
-                      'bg-gray-600'}
-                  `}/>
-                  <span>{node.message}</span>
-                </div>
-              </TooltipContent>
-            </Tooltip>
+            {/* Node circle with pulsating waves */}
+            <button
+              onClick={() => setSelectedNode(selectedNode?.type === node.type ? null : node)}
+              className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2
+                w-4 h-4 rounded-full cursor-pointer transition-all duration-200
+                hover:scale-110 group"
+            >
+              {/* Base node circle */}
+              <div className={`
+                w-full h-full rounded-full z-20 relative
+                ${node.status === 'compatible' ? 'bg-green-500' : 
+                  node.status === 'incompatible' ? 'bg-red-500' : 
+                  node.status === 'pending' ? 'bg-yellow-500' : 
+                  'bg-gray-600'}
+                ${selectedNode?.type === node.type ? 'ring-2 ring-white' : ''}
+              `}>
+                {/* Warning indicator */}
+                {node.status === 'incompatible' && (
+                  <span className="absolute -right-1 -top-1 w-3 h-3 bg-red-500 
+                    rounded-full flex items-center justify-center z-30">
+                    <span className="text-white text-xs">!</span>
+                  </span>
+                )}
+              </div>
 
-            {/* Dependency lines */}
+              {/* Pulsating waves - Multiple rings for better effect */}
+              {(node.status === 'incompatible' || node.status === 'pending') && (
+                <>
+                  {/* First wave */}
+                  <div className={`
+                    absolute inset-0 rounded-full animate-wave-1 z-10
+                    ${node.status === 'incompatible' 
+                      ? 'bg-red-500/40' 
+                      : 'bg-yellow-500/40'}
+                  `} />
+                  
+                  {/* Second wave */}
+                  <div className={`
+                    absolute inset-0 rounded-full animate-wave-2 z-9
+                    ${node.status === 'incompatible' 
+                      ? 'bg-red-500/30' 
+                      : 'bg-yellow-500/30'}
+                  `} />
+                  
+                  {/* Third wave */}
+                  <div className={`
+                    absolute inset-0 rounded-full animate-wave-3 z-8
+                    ${node.status === 'incompatible' 
+                      ? 'bg-red-500/20' 
+                      : 'bg-yellow-500/20'}
+                  `} />
+                </>
+              )}
+
+              {/* Hover tooltip */}
+              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 
+                px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap
+                opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none
+                border border-gray-700 shadow-lg z-50">
+                {node.status === 'incompatible' 
+                  ? 'Compatibility Issue - Click to view' 
+                  : node.status === 'pending' 
+                    ? 'Needs Verification - Click to view'
+                    : 'Click to view details'}
+              </div>
+            </button>
+
+            {/* Dependency lines with status-based styling */}
             {node.dependencies.map(dep => {
               const depIndex = nodes.findIndex(n => n.type === dep);
               if (depIndex === -1) return null;
@@ -421,8 +465,8 @@ const CompatibilityTree = ({ nodes }: { nodes: ComponentNode[] }) => {
                   key={`${node.type}-${dep}`}
                   className={`absolute left-1/2 w-4 border-t transform -translate-y-1/2
                     ${node.status === 'compatible' ? 'border-green-500' : 
-                      node.status === 'incompatible' ? 'border-red-500' : 
-                      node.status === 'pending' ? 'border-yellow-500' : 
+                      node.status === 'incompatible' ? 'border-red-500 animate-pulse-fast' : 
+                      node.status === 'pending' ? 'border-yellow-500 animate-pulse-slow' : 
                       'border-gray-600'}`}
                   style={{
                     top: `${(depIndex - index) * 100}%`
@@ -433,7 +477,129 @@ const CompatibilityTree = ({ nodes }: { nodes: ComponentNode[] }) => {
           </div>
         ))}
       </div>
-    </TooltipProvider>
+
+      {/* Compatibility Details Panel - Updated positioning */}
+      {selectedNode && (
+        <div className="ml-4 w-64 bg-gray-800 rounded-lg p-4 shadow-xl border border-gray-700 
+          animate-slideIn absolute left-full top-1/2 -translate-y-1/2 z-50"
+        >
+          {/* Arrow pointing to the node */}
+          <div className="absolute right-full top-1/2 -translate-y-1/2 w-0 h-0 
+            border-t-8 border-t-transparent 
+            border-r-8 border-r-gray-800 
+            border-b-8 border-b-transparent"
+          />
+          
+          {/* Rest of your panel content */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className={`w-3 h-3 rounded-full flex-shrink-0
+              ${selectedNode.status === 'compatible' ? 'bg-green-500' : 
+                selectedNode.status === 'incompatible' ? 'bg-red-500' : 
+                selectedNode.status === 'pending' ? 'bg-yellow-500' : 
+                'bg-gray-600'}`}
+            />
+            <h3 className="font-medium text-white">
+              {COMPONENT_DISPLAY_NAMES[selectedNode.type]}
+            </h3>
+          </div>
+
+          {/* Status Details */}
+          <div className="space-y-3">
+            {/* Component Info */}
+            {build.components[selectedNode.type] ? (
+              <div className="bg-gray-700 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-10 h-10 relative bg-gray-600 rounded">
+                    <Image
+                      src={build.components[selectedNode.type]?.image || '/images/placeholder.jpg'}
+                      alt={build.components[selectedNode.type]?.name || ''}
+                      fill
+                      className="object-contain p-1"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm text-white font-medium">
+                      {build.components[selectedNode.type]?.name}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {build.components[selectedNode.type]?.company}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-700/50 rounded-lg p-3">
+                <p className="text-sm text-gray-400">No component installed</p>
+              </div>
+            )}
+
+            {/* Compatibility Status */}
+            <div className={`rounded-lg p-3 ${
+              selectedNode.status === 'compatible' ? 'bg-green-500/10 border border-green-500/20' :
+              selectedNode.status === 'incompatible' ? 'bg-red-500/10 border border-red-500/20' :
+              selectedNode.status === 'pending' ? 'bg-yellow-500/10 border border-yellow-500/20' :
+              'bg-gray-700'
+            }`}>
+              <h4 className={`text-sm font-medium mb-1 ${
+                selectedNode.status === 'compatible' ? 'text-green-400' :
+                selectedNode.status === 'incompatible' ? 'text-red-400' :
+                selectedNode.status === 'pending' ? 'text-yellow-400' :
+                'text-gray-400'
+              }`}>
+                {selectedNode.status === 'compatible' ? 'Compatible' :
+                 selectedNode.status === 'incompatible' ? 'Compatibility Issue' :
+                 selectedNode.status === 'pending' ? 'Pending Verification' :
+                 'Not Installed'}
+              </h4>
+              <p className="text-sm text-gray-300">{selectedNode.message}</p>
+            </div>
+
+            {/* Dependencies */}
+            {selectedNode.dependencies.length > 0 && (
+              <div className="bg-gray-700 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-gray-300 mb-2">Required Components</h4>
+                <div className="space-y-2">
+                  {selectedNode.dependencies.map(dep => {
+                    const depNode = nodes.find(n => n.type === dep);
+                    return (
+                      <div key={dep} className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full
+                          ${depNode?.status === 'compatible' ? 'bg-green-500' :
+                            depNode?.status === 'incompatible' ? 'bg-red-500' :
+                            depNode?.status === 'pending' ? 'bg-yellow-500' :
+                            'bg-gray-500'}`}
+                        />
+                        <span className="text-sm text-gray-400">
+                          {COMPONENT_DISPLAY_NAMES[dep]}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {selectedNode.status === 'incompatible' && (
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-blue-400 mb-2">Recommendations</h4>
+                <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
+                  {selectedNode.type === 'motherboard' && build.components.cpu && (
+                    <li>Look for motherboards compatible with {build.components.cpu.name} socket type</li>
+                  )}
+                  {selectedNode.type === 'ram' && build.components.motherboard && (
+                    <li>Ensure RAM generation matches motherboard specifications</li>
+                  )}
+                  {selectedNode.type === 'gpu' && build.components.cpu && (
+                    <li>Consider a more balanced CPU-GPU combination</li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -1911,10 +2077,10 @@ export default function PcBuilderScreen() {
                 builds.map((build) => (
                   <div
                     key={build.id}
-                    className="bg-[#1F2937] rounded-xl p-6 min-w-[350px] relative"
+                    className="bg-[#1F2937] rounded-xl p-6 min-w-[350px] relative z-0 overflow-visible"
                   >
                     {/* Add the compatibility tree */}
-                    <CompatibilityTree nodes={checkCompatibility(build)} />
+                    <CompatibilityTree nodes={checkCompatibility(build)} build={build} />
 
                     {/* Add left padding to make room for the tree */}
                     <div className="pl-8">
