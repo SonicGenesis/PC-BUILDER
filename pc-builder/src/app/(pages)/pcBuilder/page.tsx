@@ -452,8 +452,36 @@ const getRecommendationMatch = (component: PCComponent, build: PCBuild): number 
   return Math.round(matchPercentage);
 };
 
+// Add this constant for the storage key
+const PC_BUILDS_STORAGE_KEY = 'pc-builder-builds';
+
 export default function PcBuilderScreen() {
   const [builds, setBuilds] = useState<PCBuild[]>([]);
+
+  // Handle localStorage in useEffect
+  useEffect(() => {
+    // Load builds from localStorage on mount
+    const savedBuilds = localStorage.getItem(PC_BUILDS_STORAGE_KEY);
+    if (savedBuilds) {
+      try {
+        const parsedBuilds = JSON.parse(savedBuilds);
+        setBuilds(parsedBuilds);
+      } catch (error) {
+        console.error('Error loading builds from localStorage:', error);
+      }
+    }
+  }, []); // Empty dependency array means this runs once on mount
+
+  // Save to localStorage whenever builds change
+  useEffect(() => {
+    localStorage.setItem(PC_BUILDS_STORAGE_KEY, JSON.stringify(builds));
+  }, [builds]);
+
+  // Create a wrapper function for setBuilds
+  const updateBuilds = (newBuilds: PCBuild[] | ((prev: PCBuild[]) => PCBuild[])) => {
+    setBuilds(newBuilds);
+  };
+
   const { showDialog } = useDialog();
   const [availableComponents, setAvailableComponents] = useState<PCComponent[]>([]);
 
@@ -531,11 +559,11 @@ export default function PcBuilderScreen() {
   };
 
   const saveBuildName = () => {
-    if (!editingBuildId) return;
+    if (!editingBuildId || !editingBuildName.trim()) return;
     
-    setBuilds(prev => prev.map(build => 
+    updateBuilds(prev => prev.map(build => 
       build.id === editingBuildId 
-        ? { ...build, name: editingBuildName }
+        ? { ...build, name: editingBuildName.trim() }
         : build
     ));
     
@@ -550,30 +578,28 @@ export default function PcBuilderScreen() {
   };
 
   const handleComponentRemove = (buildId: string, componentType: ComponentType) => {
-    showDialog({
-      type: 'confirm',
-      title: 'Remove Component',
-      message: `Are you sure you want to remove this ${COMPONENT_DISPLAY_NAMES[componentType].toLowerCase()} from your build?`,
-      onConfirm: () => {
-        setBuilds(prev => prev.map(build => {
-          if (build.id === buildId) {
-            const updatedComponents = { ...build.components };
-            delete updatedComponents[componentType];
-            return { ...build, components: updatedComponents };
-          }
-          return build;
-        }));
+    updateBuilds(prev => prev.map(build => {
+      if (build.id === buildId) {
+        const newComponents = { ...build.components };
+        delete newComponents[componentType];
+        return { ...build, components: newComponents };
       }
-    });
+      return build;
+    }));
   };
 
   const handleBuildDelete = (buildId: string, buildName: string) => {
     showDialog({
       type: 'confirm',
       title: 'Delete Build',
-      message: `Are you sure you want to delete "${buildName}"? This action cannot be undone.`,
+      message: `Are you sure you want to delete "${buildName}"?`,
       onConfirm: () => {
-        setBuilds(prev => prev.filter(build => build.id !== buildId));
+        updateBuilds(prev => prev.filter(b => b.id !== buildId));
+        showDialog({
+          type: 'success',
+          title: 'Build Deleted',
+          message: `"${buildName}" has been deleted`
+        });
       }
     });
   };
@@ -608,7 +634,7 @@ export default function PcBuilderScreen() {
       return;
     }
     
-    setBuilds(prev => prev.map(build => 
+    updateBuilds(prev => prev.map(build => 
       build.id === editingBudgetId 
         ? { ...build, budget: editingBudgetValue }
         : build
@@ -623,7 +649,7 @@ export default function PcBuilderScreen() {
 
     const handleCreateBuild = (budgetValue: number) => {
       console.log('Creating build with budget:', budgetValue);
-      setBuilds(prev => [...prev, {
+      updateBuilds(prev => [...prev, {
         id: `build-${prev.length + 1}`,
         name: `${purpose.name} ${prev.length + 1}`,
         budget: budgetValue,
@@ -786,7 +812,7 @@ export default function PcBuilderScreen() {
                               <button
                                 key={range.value}
                                 onClick={() => {
-                                  setBuilds(prev => [...prev, {
+                                  updateBuilds(prev => [...prev, {
                                     id: `build-${prev.length + 1}`,
                                     name: `${purpose.name} ${prev.length + 1}`,
                                     budget: range.value,
@@ -997,7 +1023,7 @@ export default function PcBuilderScreen() {
                                     [component.type]: component
                                   }
                                 };
-                                setBuilds((prev: PCBuild[]) => [...prev, newBuild]);
+                                updateBuilds((prev: PCBuild[]) => [...prev, newBuild]);
                                 showDialog({
                                   type: 'success',
                                   title: 'Build Created',
@@ -1089,10 +1115,10 @@ export default function PcBuilderScreen() {
                         ? { ...b, budget: newTotal }
                         : b
                     );
-                    setBuilds(newBuilds);
+                    updateBuilds(newBuilds);
                     // Add component
                     build.components[component.type] = component;
-                    setBuilds(updatedBuilds);
+                    updateBuilds(updatedBuilds);
                     showDialog({
                       type: 'success',
                       title: 'Budget Updated',
@@ -1107,7 +1133,7 @@ export default function PcBuilderScreen() {
                   onClick={() => {
                     // Add component without increasing budget
                     build.components[component.type] = component;
-                    setBuilds(updatedBuilds);
+                    updateBuilds(updatedBuilds);
                     showDialog({
                       type: 'success',
                       title: 'Component Added',
@@ -1152,7 +1178,7 @@ export default function PcBuilderScreen() {
           ),
           onConfirm: () => {
             build.components[component.type] = component;
-            setBuilds(updatedBuilds);
+            updateBuilds(updatedBuilds);
             showDialog({
               type: 'success',
               title: 'Component Replaced',
@@ -1165,7 +1191,7 @@ export default function PcBuilderScreen() {
 
       // Add component to build if there's no existing component
       build.components[component.type] = component;
-      setBuilds(updatedBuilds);
+      updateBuilds(updatedBuilds);
       
       showDialog({
         type: 'success',
@@ -1174,6 +1200,89 @@ export default function PcBuilderScreen() {
       });
     }
   };
+
+  // Add a function to clear all builds (optional)
+  const clearAllBuilds = () => {
+    showDialog({
+      type: 'confirm',
+      title: 'Clear All Builds',
+      message: 'Are you sure you want to delete all builds? This cannot be undone.',
+      onConfirm: () => {
+        updateBuilds([]);
+        localStorage.removeItem(PC_BUILDS_STORAGE_KEY);
+        showDialog({
+          type: 'success',
+          title: 'Builds Cleared',
+          message: 'All builds have been deleted'
+        });
+      }
+    });
+  };
+
+  // Add a function to export builds (optional)
+  const exportBuilds = () => {
+    const dataStr = JSON.stringify(builds, null, 2);
+    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+    const exportFileDefaultName = `pc-builds-${new Date().toISOString().slice(0, 10)}.json`;
+
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+  };
+
+  // Add a function to import builds (optional)
+  const importBuilds = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedBuilds = JSON.parse(e.target?.result as string);
+        updateBuilds(prev => [...prev, ...importedBuilds]);
+        showDialog({
+          type: 'success',
+          title: 'Builds Imported',
+          message: `Successfully imported ${importedBuilds.length} builds`
+        });
+      } catch (error) {
+        showDialog({
+          type: 'error',
+          title: 'Import Failed',
+          message: 'Failed to import builds. Please check the file format.'
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Add these buttons to your UI where appropriate
+  const BuildsManagementButtons = () => (
+    <div className="flex gap-2">
+      <button
+        onClick={exportBuilds}
+        className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+      >
+        Export Builds
+      </button>
+      <label className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 cursor-pointer">
+        Import Builds
+        <input
+          type="file"
+          accept=".json"
+          className="hidden"
+          onChange={importBuilds}
+        />
+      </label>
+      <button
+        onClick={clearAllBuilds}
+        className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+      >
+        Clear All
+      </button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen w-full pt-20 pb-16 bg-[#111827]">
