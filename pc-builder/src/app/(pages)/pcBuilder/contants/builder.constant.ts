@@ -1,0 +1,1 @@
+export const PC_BUILDS_STORAGE_KEY = 'pc-builder-builds';
