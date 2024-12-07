@@ -77,3 +77,4 @@ logs/
 backend/credentials/*.json
 !backend/credentials/credentials.template.json
 !backend/credentials/README.md
+pc-builder/backend/credentials/google_sheets_credentials.json
