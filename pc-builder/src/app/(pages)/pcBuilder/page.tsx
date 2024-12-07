@@ -26,6 +26,8 @@ import { BuildCard } from './components/builderComponents/buildCard';
 import { BuilderSidenavComponents } from './components/builderComponents/builderSidenavComponents';
 import { BuilderSidenavFavorites } from './components/builderComponents/builderSidenavFavorites';
 import { handleDragEnd as dragDropHandler } from './utils/dragDrop.handler';
+import { BuildsManagementButtons } from './components/builderComponents/BuildsManagementButtons';
+import { BudgetFlexibilityDialog } from './components/dialogs/BudgetFlexibilityDialog';
 
 // Update the CompatibilityTree component
 
@@ -551,100 +553,13 @@ export default function PcBuilderScreen() {
       type: 'confirm',
       title: 'Budget Flexibility',
       message: (
-        <div className="space-y-4">
-          <p className="text-gray-600 dark:text-gray-400">
-            How flexible is your budget for this {purpose.name.toLowerCase()}?
-          </p>
-          <div className="space-y-3">
-            {BUDGET_FLEXIBILITY_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                onClick={() => {
-                  showDialog({
-                    type: 'confirm',
-                    title: `Select Budget for ${purpose.name}`,
-                    message: (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 mb-4">
-                          {purpose.icon}
-                          <div>
-                            <h3 className="font-medium text-lg">{purpose.name}</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {purpose.description}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            {option.icon}
-                            <span className="font-medium text-blue-700 dark:text-blue-300">
-                              {option.label}
-                            </span>
-                          </div>
-                          <p className="text-sm text-blue-600 dark:text-blue-400">
-                            {option.description}
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          {BUDGET_RANGES.map((range) => (
-                            <button
-                              key={range.value}
-                              onClick={() => {
-                                const newBuild: PCBuild = {
-                                  id: `build-${builds.length + 1}`,
-                                  name: `${purpose.name} ${builds.length + 1}`,
-                                  budget: range.value,
-                                  purpose: purpose.id,
-                                  budgetFlexibility: option.id as BudgetFlexibility,
-                                  components: {
-                                    [component.type]: component
-                                  }
-                                };
-                                updateBuilds((prev: PCBuild[]) => [...prev, newBuild]);
-                                showDialog({
-                                  type: 'success',
-                                  title: 'Build Created',
-                                  message: `Created new ${purpose.name.toLowerCase()} with ${option.label.toLowerCase()} budget of ₹${range.value.toLocaleString()}`
-                                });
-                              }}
-                              className="w-full text-left px-4 py-3 rounded-lg
-                                bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
-                                dark:hover:bg-gray-600 transition-colors"
-                            >
-                              <div className="flex justify-between items-center">
-                                <span>{range.label}</span>
-                                {(range.value >= purpose.minBudget && (!purpose.maxBudget || range.value <= purpose.maxBudget)) && (
-                                  <span className="text-green-500 text-sm">Recommended</span>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  });
-                }}
-                className="w-full flex items-center gap-4 px-4 py-3 rounded-lg 
-                  bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
-                  dark:hover:bg-gray-600 transition-colors"
-              >
-                <div className="text-gray-600 dark:text-gray-300">
-                  {option.icon}
-                </div>
-                <div className="flex-1 text-left">
-                  <h3 className="font-medium text-gray-800 dark:text-gray-200">
-                    {option.label}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {option.description}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        <BudgetFlexibilityDialog
+          purpose={purpose}
+          showDialog={showDialog}
+          component={component}
+          builds={builds}
+          updateBuilds={updateBuilds}
+        />
       )
     });
   };
@@ -716,33 +631,6 @@ export default function PcBuilderScreen() {
     };
     reader.readAsText(file);
   };
-
-  // Add these buttons to your UI where appropriate
-  const BuildsManagementButtons = () => (
-    <div className="flex gap-2">
-      <button
-        onClick={exportBuilds}
-        className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-      >
-        Export Builds
-      </button>
-      <label className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 cursor-pointer">
-        Import Builds
-        <input
-          type="file"
-          accept=".json"
-          className="hidden"
-          onChange={importBuilds}
-        />
-      </label>
-      <button
-        onClick={clearAllBuilds}
-        className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-      >
-        Clear All
-      </button>
-    </div>
-  );
 
   // Keep these state declarations
   const [sidebarWidth, setSidebarWidth] = useState(320); // Default width 320px
@@ -1088,6 +976,12 @@ export default function PcBuilderScreen() {
                 ))
               )}
             </div>
+
+            <BuildsManagementButtons 
+              exportBuilds={exportBuilds}
+              importBuilds={importBuilds}
+              clearAllBuilds={clearAllBuilds}
+            />
           </div>
         </div>
       </DragDropContext>
