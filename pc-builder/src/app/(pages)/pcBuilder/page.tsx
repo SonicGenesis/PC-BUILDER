@@ -28,17 +28,28 @@ import { BuilderSidenavFavorites } from './components/builderComponents/builderS
 import { handleDragEnd as dragDropHandler } from './utils/dragDrop.handler';
 import { BuildsManagementButtons } from './components/builderComponents/BuildsManagementButtons';
 import { BudgetFlexibilityDialog } from './components/dialogs/BudgetFlexibilityDialog';
-
-// Update the CompatibilityTree component
-
-
-
-// Add this constant for the storage key
+import { CustomBudgetDialog } from './components/dialogs/CustomBudgetDialog';
+import { BudgetSelectionWithRangesDialog } from './components/dialogs/BudgetSelectionWithRangesDialog';
+import { buildManagement } from './utils/buildManagement';
+import { handleComponentClick as componentClickHandler } from './utils/componentClick.handler';
 
 
 export default function PcBuilderScreen() {
   const [builds, setBuilds] = useState<PCBuild[]>([]);
+  // Add a function to clear all builds (optional)
+  const clearAllBuilds = () => {
+    buildManagement.clearAllBuilds({ builds, updateBuilds, showDialog });
+  };
 
+  // Add a function to export builds (optional)
+  const exportBuilds = () => {
+    buildManagement.exportBuilds({ builds, updateBuilds, showDialog });
+  };
+
+  // Add a function to import builds (optional)
+  const importBuilds = (event: React.ChangeEvent<HTMLInputElement>) => {
+    buildManagement.importBuilds(event, { builds, updateBuilds, showDialog });
+  };
   // Handle localStorage in useEffect
   useEffect(() => {
     // Load builds from localStorage on mount
@@ -250,86 +261,11 @@ export default function PcBuilderScreen() {
       type: 'confirm',
       title: 'Select Custom Budget',
       message: (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-4">
-            {purpose.icon}
-            <div>
-              <h3 className="font-medium text-lg">{purpose.name}</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {purpose.description}
-              </p>
-            </div>
-          </div>
-          
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-            <p className="text-sm text-blue-600 dark:text-blue-400">
-              Recommended range for {purpose.name.toLowerCase()}:
-              <br />₹{purpose.minBudget.toLocaleString()} - 
-              {purpose.maxBudget ? `₹${purpose.maxBudget.toLocaleString()}` : 'Above'}
-            </p>
-          </div>
-
-          <div className="pt-2">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              Select your preferred budget:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {CUSTOM_BUDGET_CHIPS.map((chip) => {
-                const isWithinRange = chip.value >= purpose.minBudget && 
-                  (!purpose.maxBudget || chip.value <= purpose.maxBudget);
-                
-                return (
-                  <button
-                    key={chip.value}
-                    onClick={() => {
-                      if (!isWithinRange) {
-                        showDialog({
-                          type: 'confirm',
-                          title: 'Budget Outside Recommended Range',
-                          message: (
-                            <div className="space-y-3">
-                              <p>The selected budget is {chip.value < purpose.minBudget ? 'below' : 'above'} 
-                                the recommended range for a {purpose.name.toLowerCase()}.</p>
-                              <p>Would you like to continue anyway?</p>
-                              <div className="space-y-2">
-                                <button
-                                  onClick={() => handleCreateBuild(chip.value)}
-                                  className="w-full text-left px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white"
-                                >
-                                  Continue with {chip.label}
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    // Go back to budget selection
-                                  }}
-                                  className="w-full text-left px-4 py-2 rounded bg-gray-500 hover:bg-gray-600 text-white"
-                                >
-                                  Select different budget
-                                </button>
-                              </div>
-                            </div>
-                          )
-                        });
-                        return;
-                      }
-                      handleCreateBuild(chip.value);
-                    }}
-                    className={`px-4 py-2 rounded-full transition-colors
-                      ${isWithinRange 
-                        ? 'bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-800/60 text-blue-700 dark:text-blue-300'
-                        : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'}
-                    `}
-                  >
-                    {chip.label}
-                    {isWithinRange && (
-                      <span className="ml-1 text-xs text-green-500">✓</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <CustomBudgetDialog
+          purpose={purpose}
+          handleCreateBuild={handleCreateBuild}
+          showDialog={showDialog}
+        />
       )
     });
   };
@@ -348,100 +284,17 @@ export default function PcBuilderScreen() {
               <button
                 key={option.id}
                 onClick={() => {
-                  // After selecting flexibility, show budget options
                   showDialog({
                     type: 'confirm',
                     title: `Select Budget for ${purpose.name}`,
                     message: (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 mb-4">
-                          {purpose.icon}
-                          <div>
-                            <h3 className="font-medium text-lg">{purpose.name}</h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {purpose.description}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            {option.icon}
-                            <span className="font-medium text-blue-700 dark:text-blue-300">
-                              {option.label}
-                            </span>
-                          </div>
-                          <p className="text-sm text-blue-600 dark:text-blue-400">
-                            {option.description}
-                          </p>
-                        </div>
-
-                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                          <p className="text-sm text-blue-600 dark:text-blue-400">
-                            Recommended range for {purpose.name.toLowerCase()}:
-                            <br />₹{purpose.minBudget.toLocaleString()} - 
-                            {purpose.maxBudget ? `₹${purpose.maxBudget.toLocaleString()}` : 'Above'}
-                          </p>
-                        </div>
-
-                        <div className="pt-2">
-                          <p className="text-gray-600 dark:text-gray-400 mb-3">
-                            Select your preferred budget range:
-                          </p>
-                          <div className="space-y-2">
-                            {BUDGET_RANGES.map((range) => (
-                              <button
-                                key={range.value}
-                                onClick={() => {
-                                  updateBuilds(prev => [...prev, {
-                                    id: `build-${prev.length + 1}`,
-                                    name: `${purpose.name} ${prev.length + 1}`,
-                                    budget: range.value,
-                                    purpose: purpose.id,
-                                    budgetFlexibility: option.id as BudgetFlexibility,
-                                    components: {}
-                                  }]);
-                                  showDialog({
-                                    type: 'success',
-                                    title: 'Build Created',
-                                    message: `Created new ${purpose.name.toLowerCase()} with ${option.label.toLowerCase()} budget of ₹${range.value.toLocaleString()}`
-                                  });
-                                }}
-                                className={`w-full text-left px-4 py-3 rounded-lg
-                                  ${range.value >= purpose.minBudget && (!purpose.maxBudget || range.value <= purpose.maxBudget)
-                                    ? 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                    : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}
-                                  transition-colors text-gray-800 dark:text-gray-200`}
-                              >
-                                <div className="flex justify-between items-center">
-                                  <span>{range.label}</span>
-                                  {(range.value >= purpose.minBudget && (!purpose.maxBudget || range.value <= purpose.maxBudget)) && (
-                                    <span className="text-green-500 text-sm">Recommended</span>
-                                  )}
-                                </div>
-                              </button>
-                            ))}
-                            
-                            {/* Add custom budget option */}
-                            <button
-                              onClick={() => handleCustomBudget(purpose)}
-                              className="w-full text-left px-4 py-3 rounded-lg
-                                bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600
-                                transition-colors text-gray-800 dark:text-gray-200 mt-4"
-                            >
-                              <div className="flex justify-between items-center">
-                                <div>
-                                  <span className="font-medium">Custom Budget</span>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    Choose from preset amounts or enter your own
-                                  </p>
-                                </div>
-                                <FiEdit2 className="w-5 h-5 text-blue-500" />
-                              </div>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      <BudgetSelectionWithRangesDialog
+                        purpose={purpose}
+                        option={option}
+                        updateBuilds={updateBuilds}
+                        showDialog={showDialog}
+                        handleCustomBudget={handleCustomBudget}
+                      />
                     )
                   });
                 }}
@@ -576,61 +429,7 @@ export default function PcBuilderScreen() {
     });
   };
 
-  // Add a function to clear all builds (optional)
-  const clearAllBuilds = () => {
-    showDialog({
-      type: 'confirm',
-      title: 'Clear All Builds',
-      message: 'Are you sure you want to delete all builds? This cannot be undone.',
-      onConfirm: () => {
-        updateBuilds([]);
-        localStorage.removeItem(PC_BUILDS_STORAGE_KEY);
-        showDialog({
-          type: 'success',
-          title: 'Builds Cleared',
-          message: 'All builds have been deleted'
-        });
-      }
-    });
-  };
 
-  // Add a function to export builds (optional)
-  const exportBuilds = () => {
-    const dataStr = JSON.stringify(builds, null, 2);
-    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
-    const exportFileDefaultName = `pc-builds-${new Date().toISOString().slice(0, 10)}.json`;
-
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-  };
-
-  // Add a function to import builds (optional)
-  const importBuilds = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const importedBuilds = JSON.parse(e.target?.result as string);
-        updateBuilds(prev => [...prev, ...importedBuilds]);
-        showDialog({
-          type: 'success',
-          title: 'Builds Imported',
-          message: `Successfully imported ${importedBuilds.length} builds`
-        });
-      } catch (error) {
-        showDialog({
-          type: 'error',
-          title: 'Import Failed',
-          message: 'Failed to import builds. Please check the file format.'
-        });
-      }
-    };
-    reader.readAsText(file);
-  };
 
   // Keep these state declarations
   const [sidebarWidth, setSidebarWidth] = useState(320); // Default width 320px
@@ -667,186 +466,13 @@ export default function PcBuilderScreen() {
 
   // Add this new function near your other handlers
   const handleComponentClick = (component: PCComponent) => {
-    // If no builds exist, prompt to create one
-    if (builds.length === 0) {
-      createBuildWithComponent(component);
-      return;
-    }
-
-    const handleReplacement = (build: PCBuild) => {
-      const existingComponent = build.components[component.type];
-      
-      if (existingComponent) {
-        showDialog({
-          type: 'confirm',
-          title: 'Replace Component',
-          message: (
-            <div className="space-y-4">
-              <p className="text-gray-600 dark:text-gray-400">
-                This build already has a {COMPONENT_DISPLAY_NAMES[component.type].toLowerCase()}:
-              </p>
-              
-              {/* Comparison View */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Existing Component */}
-                <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
-                  <div className="text-xs text-red-500 mb-2">Current Component</div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-16 h-16 relative bg-gray-200 dark:bg-gray-600 rounded-lg flex-shrink-0">
-                      <Image
-                        src={existingComponent.image || '/images/placeholder.jpg'}
-                        alt={existingComponent.name}
-                        fill
-                        className="object-contain p-2"
-                      />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-sm">{existingComponent.name}</h4>
-                      <p className="text-sm text-gray-500">₹{existingComponent.price.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* New Component */}
-                <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
-                  <div className="text-xs text-green-500 mb-2">New Component</div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-16 h-16 relative bg-gray-200 dark:bg-gray-600 rounded-lg flex-shrink-0">
-                      <Image
-                        src={component.image || '/images/placeholder.jpg'}
-                        alt={component.name}
-                        fill
-                        className="object-contain p-2"
-                      />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-sm">{component.name}</h4>
-                      <p className="text-sm text-gray-500">₹{component.price.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Price Difference */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-blue-600 dark:text-blue-400">Price Difference:</span>
-                  <span className={`font-medium ${
-                    component.price > existingComponent.price 
-                      ? 'text-red-500' 
-                      : 'text-green-500'
-                  }`}>
-                    {component.price > existingComponent.price ? '+' : ''}
-                    ₹{(component.price - existingComponent.price).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    const updatedBuilds = builds.map(b => 
-                      b.id === build.id 
-                        ? { ...b, components: { ...b.components, [component.type]: component } }
-                        : b
-                    );
-                    updateBuilds(updatedBuilds);
-                    showDialog({
-                      type: 'success',
-                      title: 'Component Replaced',
-                      message: `Successfully replaced with ${component.name}`
-                    });
-                  }}
-                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  Replace Component
-                </button>
-                <button
-                  onClick={() => {
-                    showDialog({
-                      type: 'success',
-                      title: 'Cancelled',
-                      message: 'Component replacement cancelled'
-                    });
-                  }}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                >
-                  Keep Existing
-                </button>
-              </div>
-            </div>
-          )
-        });
-        return;
-      }
-
-      // Add new component if no existing component
-      const updatedBuilds = builds.map(b => 
-        b.id === build.id 
-          ? { ...b, components: { ...b.components, [component.type]: component } }
-          : b
-      );
-      updateBuilds(updatedBuilds);
-      showDialog({
-        type: 'success',
-        title: 'Component Added',
-        message: `${component.name} added to ${build.name}`
-      });
-    };
-
-    // If only one build exists
-    if (builds.length === 1) {
-      handleReplacement(builds[0]);
-      return;
-    }
-
-    // If multiple builds exist, show build selection dialog
-    showDialog({
-      type: 'confirm',
-      title: 'Select Build',
-      message: (
-        <div className="space-y-4">
-          <p className="text-gray-600 dark:text-gray-400">
-            Select which build to add {component.name} to:
-          </p>
-          <div className="space-y-2">
-            {builds.map((build) => (
-              <button
-                key={build.id}
-                onClick={() => handleReplacement(build)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg
-                  bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
-                  dark:hover:bg-gray-600 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-800 dark:text-gray-200">
-                    {build.name}
-                  </span>
-                  {build.components[component.type] && (
-                    <span className="text-xs px-2 py-1 rounded-full bg-yellow-500/10 text-yellow-500">
-                      Will replace existing {COMPONENT_DISPLAY_NAMES[component.type]}
-                    </span>
-                  )}
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-gray-500">
-                    Current Total: ₹{calculateBuildPrice(build).toLocaleString()}
-                  </div>
-                  {build.components[component.type] && (
-                    <div className="text-xs text-gray-400">
-                      New Total: ₹{(
-                        calculateBuildPrice(build) - 
-                        (build.components[component.type]?.price || 0) + 
-                        component.price
-                      ).toLocaleString()}
-                    </div>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )
+    componentClickHandler({
+      component,
+      builds,
+      updateBuilds,
+      showDialog,
+      createBuildWithComponent,
+      calculateBuildPrice,
     });
   };
 
