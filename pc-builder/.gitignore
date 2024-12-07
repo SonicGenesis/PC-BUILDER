@@ -72,3 +72,8 @@ backend/.eggs/
 # Logs
 *.log
 logs/
+
+# Credentials
+backend/credentials/*.json
+!backend/credentials/credentials.template.json
+!backend/credentials/README.md
