@@ -11,7 +11,7 @@ export default function Home() {
             Build Your Dream PC
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-            Discover premium computer components for your next build. From processors to graphics cards, we've got everything you need.
+            Discover premium computer components for your next build. From processors to graphics cards, we have got everything you need.
           </p>
           <Link
             href="/pcBuilder"

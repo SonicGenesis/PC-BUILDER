@@ -1,46 +1,54 @@
-from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean
 from sqlalchemy.orm import relationship
-from .base import BaseModel
+from sqlalchemy.sql import func
+from ..database.config import Base
+from .auth import User  # Import the User model
 
-class Category(BaseModel):
+class Category(Base):
     __tablename__ = "categories"
-
-    name = Column(String, index=True, unique=True, nullable=False)
-    description = Column(String)
     
-    # Relationships
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    description = Column(String)
     components = relationship("Component", back_populates="category")
 
-class Component(BaseModel):
+class Component(Base):
     __tablename__ = "components"
-
-    name = Column(String, index=True, nullable=False)
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
-    specifications = Column(JSON)  # Store specs as JSON for flexibility
-    price = Column(Float, nullable=False)
-    manufacturer = Column(String, nullable=False)
     
-    # Relationships
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(Text, nullable=True)
+    current_price = Column(Float)
+    url = Column(String)
+    image_url = Column(String, nullable=True)
+    category_id = Column(Integer, ForeignKey("categories.id"))
+    
     category = relationship("Category", back_populates="components")
-    price_history = relationship("Price", back_populates="component")
+    prices = relationship("Price", back_populates="component")
+    analytics = relationship("Analytics", back_populates="component")
 
-class Price(BaseModel):
+class Price(Base):
     __tablename__ = "prices"
-
-    component_id = Column(Integer, ForeignKey("components.id"), nullable=False)
-    price = Column(Float, nullable=False)
-    date_retrieved = Column(DateTime(timezone=True), nullable=False)
     
-    # Relationships
-    component = relationship("Component", back_populates="price_history")
+    id = Column(Integer, primary_key=True, index=True)
+    component_id = Column(Integer, ForeignKey("components.id"))
+    price = Column(Float)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    
+    component = relationship("Component", back_populates="prices")
 
-class Analytics(BaseModel):
+class Analytics(Base):
     __tablename__ = "analytics"
-
-    event_type = Column(String, nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
-    timestamp = Column(DateTime(timezone=True), nullable=False)
-    additional_info = Column(JSON)  # Store additional event data as JSON
     
-    # Relationships
-    user = relationship("User", back_populates="analytics")
+    id = Column(Integer, primary_key=True, index=True)
+    component_id = Column(Integer, ForeignKey("components.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))  # Reference to auth.User
+    view_count = Column(Integer, default=0)
+    last_viewed = Column(DateTime(timezone=True), server_default=func.now())
+    is_favorite = Column(Boolean, default=False)
+    
+    component = relationship("Component", back_populates="analytics")
+    user = relationship("User", back_populates="analytics")  # Add this relationship
+
+# Update User model to include analytics relationship
+User.analytics = relationship("Analytics", back_populates="user")

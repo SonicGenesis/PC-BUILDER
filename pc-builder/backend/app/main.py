@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database.config import engine, Base
 from app.models import models, auth  # Import both model modules
-from app.routers import components, categories, analytics, crawler, auth as auth_router
+from app.routers import components, categories, analytics, crawler, auth as auth_router, ai_conversation
 from app.services.scheduler import CrawlerScheduler
 import logging
 
@@ -37,6 +37,7 @@ app.include_router(components.router)
 app.include_router(categories.router)
 app.include_router(analytics.router)
 app.include_router(crawler.router)
+app.include_router(ai_conversation.router)  # Add AI conversation router
 
 # Initialize the crawler scheduler
 scheduler = CrawlerScheduler()

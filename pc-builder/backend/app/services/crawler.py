@@ -7,31 +7,33 @@ import time
 import re
 from sqlalchemy.orm import Session
 from .services import ComponentService, PriceService
-from ..models.models import Component
+from ..models.models import Component, Price, Category
+import logging
+
+logger = logging.getLogger(__name__)
 
 class RateLimiter:
-    def __init__(self, calls_per_second=1):
+    def __init__(self, calls_per_second: float):
         self.calls_per_second = calls_per_second
-        self.last_call_time = {}
-        self._lock = asyncio.Lock()
+        self.last_call_time = 0
 
-    async def acquire(self, site: str):
-        async with self._lock:
-            current_time = time.time()
-            if site in self.last_call_time:
-                time_since_last_call = current_time - self.last_call_time[site]
-                if time_since_last_call < (1.0 / self.calls_per_second):
-                    delay = (1.0 / self.calls_per_second) - time_since_last_call
-                    print(f"Rate limiting: Waiting {delay:.1f} seconds for {site}")
-                    await asyncio.sleep(delay)
-            self.last_call_time[site] = time.time()
+    async def wait(self):
+        """Wait if needed to respect rate limits."""
+        current_time = time.time()
+        time_since_last_call = current_time - self.last_call_time
+        time_to_wait = max(0, (1 / self.calls_per_second) - time_since_last_call)
+        
+        if time_to_wait > 0:
+            await asyncio.sleep(time_to_wait)
+        
+        self.last_call_time = time.time()
 
 class CrawlerService:
     def __init__(self):
         self.component_service = ComponentService()
         self.price_service = PriceService()
-        self.rate_limiter = RateLimiter(calls_per_second=1/10)  # 10 seconds delay
-        self.similarity_threshold = 0.2
+        self.rate_limiter = RateLimiter(calls_per_second=1/2)  # One request every 2 seconds
+        self.similarity_threshold = 0.2  # Lower threshold for more lenient matching
         
         self.supported_sites = {
             "amazon_in": {
@@ -59,73 +61,126 @@ class CrawlerService:
     def _prepare_search_term(self, component: Component) -> str:
         """
         Prepare search term based on component details.
-        Removes unnecessary words and formats for better search results.
+        Creates a simple search term focusing on key identifiers.
         """
-        # Get base search term
-        search_term = f"{component.manufacturer} {component.name}"
+        # Start with basic component info
+        search_parts = []
         
-        # Extract key identifiers (model numbers, etc.)
-        model_pattern = r'([A-Z0-9]+-[A-Z0-9]+|[A-Z]{2,}[0-9]{3,}|[0-9]{4,}[A-Z]*)'
-        models = re.findall(model_pattern, search_term, re.IGNORECASE)
+        # Add manufacturer if it exists and isn't generic
+        if component.manufacturer and component.manufacturer.lower() not in ['generic', 'various']:
+            search_parts.append(component.manufacturer)
         
-        if models:
-            # If we have model numbers, use them for more precise search
-            search_term = ' '.join(models)
-        else:
-            # Remove common words that might affect search
-            search_term = search_term.lower()
-            search_term = re.sub(r'\b(gaming|rgb|series|edition)\b', '', search_term)
-            search_term = ' '.join(search_term.split())
+        # Add the main component name
+        if component.name:
+            # Extract key model identifiers
+            model_pattern = r'([A-Z0-9]+-[A-Z0-9]+|[A-Z]{2,}[0-9]{3,}|[0-9]{4,}[A-Z]*)'
+            models = re.findall(model_pattern, component.name, re.IGNORECASE)
+            
+            if models:
+                # If we have model numbers, use them
+                search_parts.extend(models)
+            else:
+                # Otherwise use key words from the name
+                name_parts = component.name.split()
+                search_parts.extend([p for p in name_parts if len(p) > 2])
+        
+        # Add category for context if available
+        if hasattr(component, 'category') and component.category and component.category.name:
+            search_parts.append(component.category.name)
+        
+        # Join parts and clean up
+        search_term = ' '.join(search_parts)
+        search_term = re.sub(r'\b(gaming|rgb|series|edition)\b', '', search_term, flags=re.IGNORECASE)
+        search_term = ' '.join(search_term.split())
         
         return search_term.replace(' ', '+')
 
-    def _clean_string(self, text: str) -> str:
-        """Clean and normalize text for comparison"""
-        if not text:
-            return ""
-        # Remove common suffixes and prefixes that might affect matching
-        text = text.lower()
-        text = re.sub(r'\(.*?\)', '', text)  # Remove parentheses and their contents
-        text = text.replace('gaming', '').replace('rgb', '')  # Remove common marketing terms
-        return ' '.join(text.split())
-
-    def _calculate_similarity(self, text1: str, text2: str) -> float:
-        """Calculate similarity between two strings with improved matching"""
-        text1 = self._clean_string(text1)
-        text2 = self._clean_string(text2)
-        
-        # Extract model numbers if present
-        model_pattern = r'[a-z0-9]+-?[a-z0-9]+'
-        models1 = set(re.findall(model_pattern, text1))
-        models2 = set(re.findall(model_pattern, text2))
-        
-        # If we have model numbers in both strings, give them higher weight
-        if models1 and models2:
-            model_similarity = len(models1.intersection(models2)) / max(len(models1), len(models2))
-            if model_similarity > 0:
-                return max(model_similarity, 0.4)  # Boost similarity if model numbers match
-        
-        # Word-based similarity
-        words1 = set(text1.split())
-        words2 = set(text2.split())
-        
-        if not words1 or not words2:
-            return 0.0
-            
-        intersection = words1.intersection(words2)
-        union = words1.union(words2)
-        
-        # Give higher weight to manufacturer and key component words
-        key_words = intersection & {'amd', 'intel', 'nvidia', 'rtx', 'rx', 'radeon', 'geforce', 'ryzen', 'core'}
-        if key_words:
-            return max(len(intersection) / len(union), 0.3)  # Boost similarity if key words match
-            
-        return len(intersection) / len(union)
-
-    def _extract_price(self, price_text: str, site_name: str = None, price_elem = None) -> Optional[float]:
+    async def _fetch_price(
+        self,
+        session: aiohttp.ClientSession,
+        site_name: str,
+        site_info: Dict,
+        search_term: str,
+        component: Component,
+        db: Session,
+        debug: bool = False
+    ) -> Optional[Dict]:
         """
-        Extract numerical price from text.
+        Fetch price for a component using search results.
         """
+        try:
+            await self.rate_limiter.wait()
+            
+            url = site_info['url_formatter'](search_term)
+            if debug:
+                print(f"Searching: {url}")
+
+            async with session.get(url, ssl=False) as response:
+                if response.status != 200:
+                    raise Exception(f"HTTP {response.status}")
+
+                html = await response.text()
+                soup = BeautifulSoup(html, 'lxml')
+                
+                # Find all products in search results
+                products = soup.select(site_info['product_selector'])
+                if not products:
+                    raise Exception("No products found in search results")
+
+                if debug:
+                    print(f"Found {len(products)} products in search")
+
+                # Look at first few products only
+                for product in products[:3]:  # Only check first 3 results
+                    try:
+                        title_elem = product.select_one(site_info['title_selector'])
+                        price_elem = product.select_one(site_info['price_selector'])
+                        link_elem = product.select_one(site_info['link_selector'])
+                        
+                        if not all([title_elem, price_elem, link_elem]):
+                            continue
+                            
+                        title = title_elem.text.strip()
+                        price = self._extract_price(price_elem.text)
+                        url = link_elem.get('href', '')
+                        if not url.startswith('http'):
+                            url = f"https://www.amazon.in{url}"
+                        
+                        if price and price > 0:
+                            # Record the price
+                            price_record = self.price_service.record_price(
+                                db=db,
+                                component_id=component.id,
+                                price=price
+                            )
+
+                            return {
+                                "component_id": component.id,
+                                "component_name": component.name,
+                                "site": site_name,
+                                "price": price,
+                                "matched_product": title,
+                                "url": url,
+                                "timestamp": price_record.date_retrieved,
+                                "currency": site_info['currency']
+                            }
+                            
+                    except Exception as e:
+                        if debug:
+                            print(f"Error processing product: {str(e)}")
+                        continue
+
+                raise Exception("No valid products found with prices")
+
+        except Exception as e:
+            if debug:
+                import traceback
+                print(f"Error details for {site_name}:")
+                print(traceback.format_exc())
+            raise e
+
+    def _extract_price(self, price_text: str) -> Optional[float]:
+        """Extract numerical price from text."""
         try:
             if not price_text:
                 return None
@@ -209,112 +264,6 @@ class CrawlerService:
 
         return results
 
-    async def _fetch_price(
-        self,
-        session: aiohttp.ClientSession,
-        site_name: str,
-        site_info: Dict,
-        search_term: str,
-        component: Component,
-        db: Session,
-        debug: bool = False
-    ) -> Optional[Dict]:
-        """
-        Fetch price for a component from Amazon India.
-        """
-        try:
-            await self.rate_limiter.acquire(site_name)
-            
-            url = site_info['url_formatter'](search_term)
-            print(f"Fetching: {url}")
-
-            async with session.get(url, ssl=False) as response:
-                if response.status != 200:
-                    raise Exception(f"HTTP {response.status}")
-
-                html = await response.text()
-                if debug:
-                    print(f"Response length: {len(html)} characters")
-                
-                soup = BeautifulSoup(html, 'lxml')
-                
-                products = soup.select(site_info['product_selector'])
-                if not products:
-                    raise Exception(f"No products found (selector: {site_info['product_selector']})")
-
-                if debug:
-                    print(f"Found {len(products)} products")
-
-                best_match = None
-                best_similarity = 0
-                best_price = None
-                best_url = None
-
-                # Get the original search term for comparison
-                original_term = f"{component.manufacturer} {component.name}"
-
-                for idx, product in enumerate(products[:8]):
-                    title_elem = product.select_one(site_info['title_selector'])
-                    if not title_elem:
-                        continue
-                        
-                    title = title_elem.text.strip()
-                    similarity = self._calculate_similarity(title, original_term)
-                    
-                    if debug:
-                        print(f"\nProduct {idx + 1}: {title}")
-                        print(f"Similarity: {similarity:.2f}")
-                    
-                    if similarity > best_similarity:
-                        price_elem = product.select_one(site_info['price_selector'])
-                        link_elem = product.select_one(site_info['link_selector'])
-                        
-                        if price_elem and link_elem:
-                            price = self._extract_price(price_elem.text, site_name, price_elem)
-                            
-                            if price and price > 0:
-                                best_match = title
-                                best_similarity = similarity
-                                best_price = price
-                                best_url = link_elem.get('href', '')
-                                if not best_url.startswith('http'):
-                                    best_url = f"https://www.amazon.in{best_url}"
-                                
-                                if debug:
-                                    print(f"New best match! Price: ₹{price:.2f}")
-                                    print(f"URL: {best_url}")
-
-                if best_price and best_similarity >= self.similarity_threshold:
-                    price_record = self.price_service.record_price(
-                        db=db,
-                        component_id=component.id,
-                        price=best_price
-                    )
-
-                    return {
-                        "component_id": component.id,
-                        "component_name": component.name,
-                        "site": site_name,
-                        "price": best_price,
-                        "matched_product": best_match,
-                        "similarity": best_similarity,
-                        "url": best_url,
-                        "timestamp": price_record.date_retrieved,
-                        "currency": site_info['currency']
-                    }
-                else:
-                    raise Exception(
-                        f"No matching product found (best similarity: {best_similarity:.2f}, "
-                        f"threshold: {self.similarity_threshold}, best match: {best_match or 'None'})"
-                    )
-
-        except Exception as e:
-            if debug:
-                import traceback
-                print(f"Error details for {site_name}:")
-                print(traceback.format_exc())
-            raise e
-
     async def get_best_price(self, db: Session, component_id: int, debug: bool = False) -> Dict:
         """
         Get the best (lowest) current price for a component from Amazon India.
@@ -337,3 +286,65 @@ class CrawlerService:
             "timestamp": best_price["timestamp"],
             "currency": best_price.get("currency", "₹")
         } 
+
+    async def update_prices(self, db: Session):
+        """Update component prices and sync with Google Sheets."""
+        try:
+            # Get all components
+            components = db.query(Component).all()
+            updated_components = []
+            
+            async with aiohttp.ClientSession() as session:
+                for component in components:
+                    try:
+                        # Store previous price
+                        previous_price = component.current_price or 0
+                        
+                        # Get new price
+                        new_price = await self.get_current_price(session, component.url)
+                        
+                        if new_price is not None:
+                            component.current_price = new_price
+                            
+                            # Create price history entry
+                            price_entry = Price(
+                                component_id=component.id,
+                                price=new_price,
+                                timestamp=datetime.utcnow()
+                            )
+                            db.add(price_entry)
+                            
+                            # Prepare component data for sheets
+                            component_data = {
+                                'name': component.name,
+                                'category': {'name': component.category.name},
+                                'current_price': new_price,
+                                'previous_price': previous_price,
+                                'url': component.url
+                            }
+                            updated_components.append(component_data)
+                            logger.info(f"Updated price for {component.name}: ${new_price:.2f}")
+                        else:
+                            logger.warning(f"Could not fetch price for {component.name}")
+                            
+                    except Exception as e:
+                        logger.error(f"Error updating price for {component.name}: {str(e)}")
+                        continue
+
+            # Commit database changes
+            db.commit()
+            
+            # Update Google Sheets
+            if updated_components:
+                success = self.sheets_service.update_component_prices(updated_components)
+                if success:
+                    logger.info(f"Successfully synced {len(updated_components)} prices to Google Sheets")
+                else:
+                    logger.error("Failed to sync prices to Google Sheets")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error in price update process: {str(e)}")
+            db.rollback()
+            return False 
