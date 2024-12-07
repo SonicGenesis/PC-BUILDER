@@ -5,23 +5,17 @@ import { graphicsCards } from '../../../../data/PC.GRAPHICCARDS';
 import { processors } from '../../../../data/PC.PROCESSORS';
 import { motherboards } from '../../../../data/PC.MOTHERBOARDS';
 import { ramModules } from '../../../../data/PC.RAM';
-import Image from 'next/image';
-import { FiEdit2, FiHeart, FiPlus, FiX, FiChevronDown, FiChevronRight, FiMonitor, FiPlay, FiCpu, FiCode, FiFilm, FiLock, FiUnlock, FiMaximize2, FiChevronLeft } from 'react-icons/fi';
-import { HiHeart } from 'react-icons/hi';
+import { FiChevronRight, FiChevronLeft } from 'react-icons/fi';
 import { useDialog } from '@/app/components/GlobalDialog';
 import { useFavorites } from '@/store/useFavorites';
 import {  RecommendationWithComponents } from './types/recommendations';
-import { BUDGET_FLEXIBILITY_OPTIONS, BUDGET_RANGES, BUILD_PURPOSES, MIN_BUDGET } from './contants/pcBuilder';
-import { COMPONENT_DISPLAY_NAMES, CUSTOM_BUDGET_CHIPS } from './contants/budget';
+import { BUDGET_FLEXIBILITY_OPTIONS, BUILD_PURPOSES, MIN_BUDGET } from './contants/pcBuilder';
 import { PURPOSE_RECOMMENDATIONS } from './contants/purposeRecemmendations';
 import {  PCComponent, ComponentType, CategoryState } from './types/components';
-import { BudgetFlexibility, BuildPurpose, PCBuild } from './types/builds';
+import { BuildPurpose, PCBuild } from './types/builds';
 import { DragDropResult } from './types/dragDrop';
-import { checkCompatibility } from './types/recommendations';
-import { getRecommendationMatch } from './utils/recommendations.helper';
 import { PC_BUILDS_STORAGE_KEY } from './contants/builder.constant';
-
-import { BuildHeader, EmptyBuildState, ComponentSlot } from './components/builderComponents/index';
+import { BuildHeader, EmptyBuildState } from './components/builderComponents/index';
 import { BuildCard } from './components/builderComponents/buildCard';
 import { BuilderSidenavComponents } from './components/builderComponents/builderSidenavComponents';
 import { BuilderSidenavFavorites } from './components/builderComponents/builderSidenavFavorites';
@@ -32,6 +26,7 @@ import { CustomBudgetDialog } from './components/dialogs/CustomBudgetDialog';
 import { BudgetSelectionWithRangesDialog } from './components/dialogs/BudgetSelectionWithRangesDialog';
 import { buildManagement } from './utils/buildManagement';
 import { handleComponentClick as componentClickHandler } from './utils/componentClick.handler';
+import { BudgetFlexibilityOptionsDialog } from './components/dialogs/BudgetFlexibilityOptionsDialog';
 
 
 export default function PcBuilderScreen() {
@@ -275,48 +270,12 @@ export default function PcBuilderScreen() {
       type: 'confirm',
       title: 'Budget Flexibility',
       message: (
-        <div className="space-y-4">
-          <p className="text-gray-600 dark:text-gray-400">
-            How flexible is your budget for this {purpose.name.toLowerCase()}?
-          </p>
-          <div className="space-y-3">
-            {BUDGET_FLEXIBILITY_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                onClick={() => {
-                  showDialog({
-                    type: 'confirm',
-                    title: `Select Budget for ${purpose.name}`,
-                    message: (
-                      <BudgetSelectionWithRangesDialog
-                        purpose={purpose}
-                        option={option}
-                        updateBuilds={updateBuilds}
-                        showDialog={showDialog}
-                        handleCustomBudget={handleCustomBudget}
-                      />
-                    )
-                  });
-                }}
-                className="w-full flex items-center gap-4 px-4 py-3 rounded-lg 
-                  bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
-                  dark:hover:bg-gray-600 transition-colors"
-              >
-                <div className="text-gray-600 dark:text-gray-300">
-                  {option.icon}
-                </div>
-                <div className="flex-1 text-left">
-                  <h3 className="font-medium text-gray-800 dark:text-gray-200">
-                    {option.label}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {option.description}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        <BudgetFlexibilityOptionsDialog
+          purpose={purpose}
+          updateBuilds={updateBuilds}
+          showDialog={showDialog}
+          handleCustomBudget={handleCustomBudget}
+        />
       )
     });
   };
@@ -428,7 +387,6 @@ export default function PcBuilderScreen() {
       createBuildWithComponent,
     });
   };
-
 
 
   // Keep these state declarations
