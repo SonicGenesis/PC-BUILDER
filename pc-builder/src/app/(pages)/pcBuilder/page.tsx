@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { DragDropContext } from '@hello-pangea/dnd';
 import { graphicsCards } from '../../../../data/PC.GRAPHICCARDS';
 import { processors } from '../../../../data/PC.PROCESSORS';
 import { motherboards } from '../../../../data/PC.MOTHERBOARDS';
@@ -9,7 +9,7 @@ import { FiChevronRight, FiChevronLeft } from 'react-icons/fi';
 import { useDialog } from '@/app/components/GlobalDialog';
 import { useFavorites } from '@/store/useFavorites';
 import {  RecommendationWithComponents } from './types/recommendations';
-import { BUDGET_FLEXIBILITY_OPTIONS, BUILD_PURPOSES, MIN_BUDGET } from './contants/pcBuilder';
+import { MIN_BUDGET } from './contants/pcBuilder';
 import { PURPOSE_RECOMMENDATIONS } from './contants/purposeRecemmendations';
 import {  PCComponent, ComponentType, CategoryState } from './types/components';
 import { BuildPurpose, PCBuild } from './types/builds';
@@ -23,7 +23,6 @@ import { handleDragEnd as dragDropHandler } from './utils/dragDrop.handler';
 import { BuildsManagementButtons } from './components/builderComponents/BuildsManagementButtons';
 import { BudgetFlexibilityDialog } from './components/dialogs/BudgetFlexibilityDialog';
 import { CustomBudgetDialog } from './components/dialogs/CustomBudgetDialog';
-import { BudgetSelectionWithRangesDialog } from './components/dialogs/BudgetSelectionWithRangesDialog';
 import { buildManagement } from './utils/buildManagement';
 import { handleComponentClick as componentClickHandler } from './utils/componentClick.handler';
 import { BudgetFlexibilityOptionsDialog } from './components/dialogs/BudgetFlexibilityOptionsDialog';
@@ -490,4 +489,3 @@ export default function PcBuilderScreen() {
     </div>
   );
 }
-
