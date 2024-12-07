@@ -5,7 +5,7 @@ import { FiX, FiAlertCircle, FiCheckCircle, FiHelpCircle } from 'react-icons/fi'
 
 type DialogType = 'success' | 'error' | 'confirm' | 'alert';
 
-interface DialogOptions {
+export interface DialogOptions {
   title?: string;
   message: string | React.ReactNode;
   type?: DialogType;
