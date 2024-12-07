@@ -27,6 +27,10 @@ import { BudgetSelectionWithRangesDialog } from './components/dialogs/BudgetSele
 import { buildManagement } from './utils/buildManagement';
 import { handleComponentClick as componentClickHandler } from './utils/componentClick.handler';
 import { BudgetFlexibilityOptionsDialog } from './components/dialogs/BudgetFlexibilityOptionsDialog';
+import { BuildPurposeSelectionDialog } from './components/dialogs/BuildPurposeSelectionDialog';
+import { ComponentLibraryHeader } from './components/builderComponents/ComponentLibraryHeader';
+import { FavoritesHeader } from './components/builderComponents/FavoritesHeader';
+import { NewBuildPurposeDialog } from './components/dialogs/NewBuildPurposeDialog';
 
 
 export default function PcBuilderScreen() {
@@ -107,35 +111,9 @@ export default function PcBuilderScreen() {
       type: 'confirm',
       title: 'Select Build Purpose',
       message: (
-        <div className="space-y-4">
-          <p className="text-gray-600 dark:text-gray-400">
-            Choose the primary purpose for your PC build:
-          </p>
-          <div className="space-y-3">
-            {BUILD_PURPOSES.map((purpose) => (
-              <button
-                key={purpose.id}
-                onClick={() => showBudgetSelection(purpose)}
-                className="w-full flex items-center gap-4 px-4 py-3 rounded-lg 
-                  bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
-                  dark:hover:bg-gray-600 transition-colors"
-              >
-                <div className="text-gray-600 dark:text-gray-300">
-                  {purpose.icon}
-                </div>
-                <div className="flex-1 text-left">
-                  <h3 className="font-medium text-gray-800 dark:text-gray-200">
-                    {purpose.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Estimated: ₹{purpose.minBudget.toLocaleString()} - 
-                    {purpose.maxBudget ? `₹${purpose.maxBudget.toLocaleString()}` : 'Above'}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        <NewBuildPurposeDialog
+          showBudgetSelection={showBudgetSelection}
+        />
       )
     });
   };
@@ -327,35 +305,10 @@ export default function PcBuilderScreen() {
       type: 'confirm',
       title: 'Select Build Purpose',
       message: (
-        <div className="space-y-4">
-          <p className="text-gray-600 dark:text-gray-400">
-            Choose the primary purpose for your PC build with {component.name}:
-          </p>
-          <div className="space-y-3">
-            {BUILD_PURPOSES.map((purpose) => (
-              <button
-                key={purpose.id}
-                onClick={() => showBudgetSelectionWithComponent(purpose, component)}
-                className="w-full flex items-center gap-4 px-4 py-3 rounded-lg 
-                  bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 
-                  dark:hover:bg-gray-600 transition-colors"
-              >
-                <div className="text-gray-600 dark:text-gray-300">
-                  {purpose.icon}
-                </div>
-                <div className="flex-1 text-left">
-                  <h3 className="font-medium text-gray-800 dark:text-gray-200">
-                    {purpose.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Estimated: ₹{purpose.minBudget.toLocaleString()} - 
-                    {purpose.maxBudget ? `₹${purpose.maxBudget.toLocaleString()}` : 'Above'}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        <BuildPurposeSelectionDialog
+          component={component}
+          showBudgetSelectionWithComponent={showBudgetSelectionWithComponent}
+        />
       )
     });
   };
@@ -445,21 +398,7 @@ export default function PcBuilderScreen() {
           >
             {/* Component Library Section */}
             <div className="flex-1 bg-[#1F2937] rounded-xl overflow-hidden flex flex-col">
-              <div className="py-4 px-6 border-b border-gray-700 bg-[#1F2937] sticky top-0 z-10">
-                <div className="flex items-center gap-3">
-                  <h2 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 text-xl">
-                    COMPONENT LIBRARY
-                  </h2>
-                  <div className="px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20">
-                    <span className="text-xs font-medium text-blue-400">
-                      Drag & Drop
-                    </span>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-400 mt-1">
-                  Browse and select from our curated collection of high-performance parts
-                </p>
-              </div>
+              <ComponentLibraryHeader />
               <div className="p-4 overflow-y-auto flex-1">
                 <BuilderSidenavComponents 
                   componentsByType={componentsByType}
@@ -476,28 +415,7 @@ export default function PcBuilderScreen() {
 
             {/* Favorites Section */}
             <div className="flex-1 bg-[#1F2937] rounded-xl overflow-hidden flex flex-col mt-4">
-              <div className="py-4 px-6 border-b border-gray-700 bg-[#1F2937] sticky top-0 z-10">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <h2 className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 text-xl">
-                        QUICKPICK VAULT
-                      </h2>
-                      <div className="px-2 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20">
-                        <span className="text-xs font-medium text-purple-400">
-                          Favorites
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Your handpicked collection of preferred components
-                    </p>
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    {favorites.length} items
-                  </div>
-                </div>
-              </div>
+              <FavoritesHeader favoritesCount={favorites.length} />
               <div className="p-4 overflow-y-auto flex-1">
                 <BuilderSidenavFavorites 
                   favorites={favorites}
