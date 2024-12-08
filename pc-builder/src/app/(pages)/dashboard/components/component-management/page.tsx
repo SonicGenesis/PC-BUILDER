@@ -10,6 +10,7 @@ import { processors } from '../../../../../data/PC.PROCESSORS'
 import { gpus } from '../../../../../data/PC.GPUS'
 import { motherboards } from '../../../../../data/PC.MOTHERBOARDS'
 import { rams } from '../../../../../data/PC.RAMS'
+import { ChangeEvent } from 'react'
 
 type ComponentType = 'CPU' | 'GPU' | 'Motherboard' | 'RAM'
 
@@ -67,11 +68,13 @@ export default function ComponentManagementPage() {
     setIsEditing(false)
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target
     setFormData((prev: ComponentFormData) => ({
       ...prev,
-      [name]: name === 'price' ? parseFloat(value) : value
+      [name]: e.target.type === 'number' ? parseFloat(value) : value
     }))
   }
 
@@ -148,6 +151,7 @@ export default function ComponentManagementPage() {
           onSubmit={handleSubmit}
           onChange={handleInputChange}
           onCancel={handleCloseModal}
+          componentType={selectedType}
         />
       </Modal>
 
