@@ -30,6 +30,7 @@ import { BuildPurposeSelectionDialog } from './components/dialogs/BuildPurposeSe
 import { ComponentLibraryHeader } from './components/builderComponents/ComponentLibraryHeader';
 import { FavoritesHeader } from './components/builderComponents/FavoritesHeader';
 import { NewBuildPurposeDialog } from './components/dialogs/NewBuildPurposeDialog';
+import { Heart } from 'lucide-react';
 
 
 export default function PcBuilderScreen() {
@@ -342,7 +343,7 @@ export default function PcBuilderScreen() {
 
 
   // Keep these state declarations
-  const [sidebarWidth, setSidebarWidth] = useState(320); // Default width 320px
+  const [sidebarWidth, setSidebarWidth] = useState(400); // Default width 320px
   const [isResizing, setIsResizing] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const minWidth = 280; // Minimum sidebar width
@@ -386,17 +387,20 @@ export default function PcBuilderScreen() {
     });
   };
 
+  // First, add a new state for the Quick Vault visibility
+  const [isQuickVaultVisible, setIsQuickVaultVisible] = useState(true);
+
   return (
     <div className="min-h-screen w-full pt-20 pb-16 bg-[#111827]">
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-6 px-6 pt-4 relative">
-          {/* Sidebar Container */}
+          {/* Sidebar Container - Now only contains Component Library */}
           <div 
-            className="w-80 flex-shrink-0 flex flex-col h-[calc(100vh-6rem)] space-y-4 relative"
+            className="w-80 flex-shrink-0 h-[calc(100vh-6rem)] relative"
             style={{ width: sidebarWidth }}
           >
-            {/* Component Library Section */}
-            <div className="flex-1 bg-[#1F2937] rounded-xl overflow-hidden flex flex-col">
+            {/* Component Library Section - Now takes full height */}
+            <div className="h-full bg-[#1F2937] rounded-xl overflow-hidden flex flex-col">
               <ComponentLibraryHeader />
               <div className="p-4 overflow-y-auto flex-1">
                 <BuilderSidenavComponents 
@@ -412,17 +416,6 @@ export default function PcBuilderScreen() {
               </div>
             </div>
 
-            {/* Favorites Section */}
-            <div className="flex-1 bg-[#1F2937] rounded-xl overflow-hidden flex flex-col mt-4">
-              <FavoritesHeader favoritesCount={favorites.length} />
-              <div className="p-4 overflow-y-auto flex-1">
-                <BuilderSidenavFavorites 
-                  favorites={favorites}
-                  toggleFavorite={toggleFavorite}
-                />
-              </div>
-            </div>
-
             {/* Simple resize handle */}
             <div
               className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50"
@@ -430,18 +423,69 @@ export default function PcBuilderScreen() {
             />
           </div>
 
-          {/* Toggle Sidebar Button */}
-          <button
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full 
-              bg-[#1F2937] hover:bg-[#2D3748] transition-all duration-300
-              ${isSidebarCollapsed ? 'translate-x-0' : 'translate-x-0'}`}
+          {/* Quick Vault Floating Panel */}
+          <div 
+            className={`fixed bottom-24 right-8 w-[28rem] bg-[#1F2937] rounded-xl shadow-xl transition-all duration-300 z-50 ${
+              isQuickVaultVisible ? 'opacity-100 visible' : 'opacity-0 invisible'
+            }`}
           >
-            {isSidebarCollapsed ? (
-              <FiChevronRight className="w-5 h-5 text-gray-400" />
-            ) : (
-              <FiChevronLeft className="w-5 h-5 text-gray-400" />
-            )}
+            {/* Quick Vault Header with close button */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-700">
+              <div className="flex items-center gap-2">
+                <Heart className={`w-5 h-5 ${favorites.length > 0 ? 'text-pink-500' : 'text-gray-400'}`} />
+                <h3 className="text-lg font-medium text-white">Quick Vault</h3>
+                <span className="text-sm text-gray-400">({favorites.length} items)</span>
+              </div>
+              <button
+                onClick={() => setIsQuickVaultVisible(false)}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Quick Vault Content */}
+            <div className="max-h-[500px] overflow-y-auto p-4">
+              {favorites.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Heart className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No favorites yet</p>
+                  <p className="text-sm mt-1">Components you favorite will appear here</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <BuilderSidenavFavorites 
+                    favorites={favorites}
+                    toggleFavorite={toggleFavorite}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Toggle Quick Vault Button */}
+          <button
+            onClick={() => setIsQuickVaultVisible(!isQuickVaultVisible)}
+            className={`fixed bottom-8 right-8 bg-gradient-to-r transition-all duration-300 text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center gap-2 hover:scale-105 transform ${
+              isQuickVaultVisible 
+                ? 'from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600' 
+                : 'from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+            }`}
+          >
+            <Heart className={`w-5 h-5 ${favorites.length > 0 ? 'fill-current' : ''}`} />
+            <span>Quick Vault ({favorites.length})</span>
           </button>
 
           {/* Main Content */}
