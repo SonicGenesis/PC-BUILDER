@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import { graphicsCards } from '../../../../data/PC.GRAPHICCARDS';
 import { motherboards } from '../../../../data/PC.MOTHERBOARDS';
@@ -82,23 +82,42 @@ type DynamicFilters = {
   };
 };
 
+// Add new types for search suggestions
+type SearchSuggestion = {
+    id: string;
+    name: string;
+    category: ComponentType;
+    image: string;
+    price: number;
+};
+
+// Add this type for category-specific filters
+type CategoryFilters = {
+    [K in ComponentType]: {
+        [key: string]: {
+            label: string;
+            options: FilterOption[];
+        };
+    };
+};
+
 export default function BrowsePage() {
+    // 1. Group all useState hooks together at the top
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [priceRange, setPriceRange] = useState([0, 200000]);
     const [sortBy, setSortBy] = useState<'price-asc' | 'price-desc' | 'featured'>('featured');
     const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
     const [dynamicFilters, setDynamicFilters] = useState<DynamicFilters>({});
+    const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+    const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
+    const [isMounted, setIsMounted] = useState(false);
+    const [collapsedFilters, setCollapsedFilters] = useState<Record<string, boolean>>({});
 
-    const categoryOptions = [
-        { value: 'all', label: 'All Categories', icon: <CircuitBoard className="w-4 h-4" /> },
-        { value: 'cpu', label: 'Processors', icon: <Cpu className="w-4 h-4" /> },
-        { value: 'gpu', label: 'Graphics Cards', icon: <MonitorPlay className="w-4 h-4" /> },
-        { value: 'motherboard', label: 'Motherboards', icon: <CircuitBoard className="w-4 h-4" /> },
-        { value: 'ram', label: 'Memory', icon: <HardDrive className="w-4 h-4" /> }
-    ];
+    // 2. All useRef hooks
+    const searchRef = useRef<HTMLDivElement>(null);
 
-    // Move allComponents to useMemo to fix exhaustive-deps warning
+    // 3. All useMemo hooks
     const allComponents = useMemo(() => {
         const gpuComponents: MappedComponent[] = graphicsCards.map(item => ({
             ...item,
@@ -149,68 +168,247 @@ export default function BrowsePage() {
         return [...gpuComponents, ...cpuComponents, ...mbComponents, ...ramComponents];
     }, []);
 
+    // 4. All useEffect hooks
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     useEffect(() => {
         const filters: DynamicFilters = {};
         const components = allComponents;
 
-        // Always show brand filter
-        filters.brand = {
-            label: 'Brand',
-            options: Array.from(new Set(components.map(c => c.company)))
+        // Only show filters for the selected category (except when 'all' is selected)
+        const relevantComponents = selectedCategory === 'all' 
+            ? components 
+            : components.filter(c => c.category === selectedCategory);
+
+        // Common manufacturer filter for all categories
+        filters.manufacturer = {
+            label: 'Manufacturer',
+            options: Array.from(new Set(relevantComponents.map(c => c.company)))
                 .map(brand => ({
                     label: brand,
                     value: brand,
-                    count: components.filter(c => c.company === brand).length
+                    count: relevantComponents.filter(c => c.company === brand).length
                 }))
         };
 
-        // Category specific filters
-        if (selectedCategory === 'gpu' || selectedCategory === 'all') {
-            const gpuComponents = components.filter(
-                (c): c is MappedComponent & GPUComponent => c.category === 'gpu'
-            );
-            if (gpuComponents.length > 0) {
+        // Category-specific filters
+        switch (selectedCategory) {
+            case 'gpu':
                 filters.vram = {
                     label: 'VRAM',
-                    options: Array.from(new Set(gpuComponents.map(c => c.vram)))
+                    options: Array.from(new Set(relevantComponents
+                        .filter((c): c is MappedComponent & GPUComponent => c.category === 'gpu')
+                        .map(c => c.vram)))
                         .map(vram => ({
                             label: vram,
                             value: vram,
-                            count: gpuComponents.filter(c => c.vram === vram).length
+                            count: relevantComponents.filter(c => c.category === 'gpu' && (c as GPUComponent).vram === vram).length
                         }))
                 };
-            }
-        }
+                break;
 
-        if (selectedCategory === 'ram' || selectedCategory === 'all') {
-            const ramComponents = components.filter(
-                (c): c is MappedComponent & RAMComponent => c.category === 'ram'
-            );
-            if (ramComponents.length > 0) {
-                filters.type = {
-                    label: 'Type',
-                    options: Array.from(new Set(ramComponents.map(c => c.type)))
-                        .map(type => ({
-                            label: type,
-                            value: type,
-                            count: ramComponents.filter(c => c.type === type).length
+            case 'cpu':
+                filters.cores = {
+                    label: 'Cores',
+                    options: Array.from(new Set(relevantComponents
+                        .filter((c): c is MappedComponent & CPUComponent => c.category === 'cpu')
+                        .map(c => c.cores)))
+                        .map(cores => ({
+                            label: `${cores} Cores`,
+                            value: String(cores),
+                            count: relevantComponents.filter(c => c.category === 'cpu' && (c as CPUComponent).cores === cores).length
                         }))
                 };
-            }
+                filters.baseClock = {
+                    label: 'Base Clock',
+                    options: Array.from(new Set(relevantComponents
+                        .filter((c): c is MappedComponent & CPUComponent => c.category === 'cpu')
+                        .map(c => c.base_clock)))
+                        .map(clock => ({
+                            label: clock,
+                            value: clock,
+                            count: relevantComponents.filter(c => c.category === 'cpu' && (c as CPUComponent).base_clock === clock).length
+                        }))
+                };
+                break;
+
+            case 'motherboard':
+                filters.socket = {
+                    label: 'Socket',
+                    options: Array.from(new Set(relevantComponents
+                        .filter((c): c is MappedComponent & MotherboardComponent => c.category === 'motherboard')
+                        .map(c => c.socket)))
+                        .map(socket => ({
+                            label: socket,
+                            value: socket,
+                            count: relevantComponents.filter(c => c.category === 'motherboard' && (c as MotherboardComponent).socket === socket).length
+                        }))
+                };
+                filters.formFactor = {
+                    label: 'Form Factor',
+                    options: Array.from(new Set(relevantComponents
+                        .filter((c): c is MappedComponent & MotherboardComponent => c.category === 'motherboard')
+                        .map(c => c.formFactor)))
+                        .map(ff => ({
+                            label: ff,
+                            value: ff,
+                            count: relevantComponents.filter(c => c.category === 'motherboard' && (c as MotherboardComponent).formFactor === ff).length
+                        }))
+                };
+                break;
+
+            case 'ram':
+                filters.capacity = {
+                    label: 'Capacity',
+                    options: Array.from(new Set(relevantComponents
+                        .filter((c): c is MappedComponent & RAMComponent => c.category === 'ram')
+                        .map(c => c.capacity)))
+                        .map(cap => ({
+                            label: cap,
+                            value: cap,
+                            count: relevantComponents.filter(c => c.category === 'ram' && (c as RAMComponent).capacity === cap).length
+                        }))
+                };
+                filters.speed = {
+                    label: 'Speed',
+                    options: Array.from(new Set(relevantComponents
+                        .filter((c): c is MappedComponent & RAMComponent => c.category === 'ram')
+                        .map(c => c.speed)))
+                        .map(speed => ({
+                            label: speed,
+                            value: speed,
+                            count: relevantComponents.filter(c => c.category === 'ram' && (c as RAMComponent).speed === speed).length
+                        }))
+                };
+                break;
         }
 
         setDynamicFilters(filters);
     }, [selectedCategory, allComponents]);
 
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+                setShowSearchDropdown(false);
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // 5. Custom hooks (if any)
+    const { toggleFavorite, favorites } = useFavorites();
+
+    // Add toggle function for collapsible filters
+    const toggleFilter = (filterKey: string) => {
+        setCollapsedFilters(prev => ({
+            ...prev,
+            [filterKey]: !prev[filterKey]
+        }));
+    };
+
+    if (!isMounted) {
+        return (
+            <div className="min-h-screen bg-[#111827]">
+                <div className="container mx-auto px-4">
+                    <div className="py-6">
+                        {/* Add a loading skeleton or spinner here */}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const categoryOptions = [
+        { value: 'all', label: 'All Categories', icon: <CircuitBoard className="w-4 h-4" /> },
+        { value: 'cpu', label: 'Processors', icon: <Cpu className="w-4 h-4" /> },
+        { value: 'gpu', label: 'Graphics Cards', icon: <MonitorPlay className="w-4 h-4" /> },
+        { value: 'motherboard', label: 'Motherboards', icon: <CircuitBoard className="w-4 h-4" /> },
+        { value: 'ram', label: 'Memory', icon: <HardDrive className="w-4 h-4" /> }
+    ];
+
+    // Generate search suggestions based on input
+    const handleSearchInput = (value: string) => {
+        setSearchQuery(value);
+        if (value.length > 0) {
+            const suggestions = allComponents
+                .filter(comp => 
+                    comp.name.toLowerCase().includes(value.toLowerCase()) ||
+                    comp.company.toLowerCase().includes(value.toLowerCase())
+                )
+                .slice(0, 5)
+                .map(comp => ({
+                    id: comp.id,
+                    name: comp.name,
+                    category: comp.type,
+                    image: comp.image,
+                    price: comp.price
+                }));
+            setSearchSuggestions(suggestions);
+            setShowSearchDropdown(true);
+        } else {
+            setShowSearchDropdown(false);
+        }
+    };
+
+    // Get category-specific filters
+    const getCategoryFilters = (category: ComponentType) => {
+        switch(category) {
+            case 'gpu':
+                return ['VRAM', 'Core Clock', 'Memory Type'];
+            case 'cpu':
+                return ['Cores', 'Socket', 'Base Clock'];
+            case 'motherboard':
+                return ['Socket', 'Form Factor', 'Chipset'];
+            case 'ram':
+                return ['Capacity', 'Speed', 'Type'];
+            default:
+                return [];
+        }
+    };
+
     const filteredComponents = allComponents.filter(component => {
+        // Category matching
         const matchesCategory = selectedCategory === 'all' || component.category === selectedCategory;
+        
+        // Search query matching
         const matchesSearch = component.name.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        // Price range matching
         const matchesPrice = component.price >= priceRange[0] && component.price <= priceRange[1];
         
+        // Filter matching based on component type
         const matchesFilters = Object.entries(selectedFilters).every(([key, values]) => {
             if (values.length === 0) return true;
-            const componentValue = String(component[key as keyof typeof component]);
-            return values.includes(componentValue);
+
+            switch (component.category) {
+                case 'gpu':
+                    if (key === 'manufacturer') return values.includes(component.company);
+                    if (key === 'vram') return values.includes((component as GPUComponent).vram);
+                    break;
+
+                case 'cpu':
+                    if (key === 'manufacturer') return values.includes(component.company);
+                    if (key === 'cores') return values.includes(String((component as CPUComponent).cores));
+                    if (key === 'baseClock') return values.includes((component as CPUComponent).base_clock);
+                    break;
+
+                case 'motherboard':
+                    if (key === 'manufacturer') return values.includes(component.company);
+                    if (key === 'socket') return values.includes((component as MotherboardComponent).socket);
+                    if (key === 'formFactor') return values.includes((component as MotherboardComponent).formFactor);
+                    break;
+
+                case 'ram':
+                    if (key === 'manufacturer') return values.includes(component.company);
+                    if (key === 'capacity') return values.includes((component as RAMComponent).capacity);
+                    if (key === 'speed') return values.includes((component as RAMComponent).speed);
+                    break;
+            }
+            return true;
         });
 
         return matchesCategory && matchesSearch && matchesPrice && matchesFilters;
@@ -220,9 +418,6 @@ export default function BrowsePage() {
         return 0;
     });
 
-    // Add favorites store hooks
-    const { toggleFavorite, favorites } = useFavorites();
-
     // Add a helper function to check if a component is favorite
     const isComponentFavorite = (componentId: string) => {
         return favorites.some(fav => fav.id === componentId);
@@ -230,57 +425,107 @@ export default function BrowsePage() {
 
     return (
         <div className="min-h-screen bg-[#111827]">
-            {/* Top Search Bar */}
-            <div className="sticky top-0 z-50 bg-gradient-to-r from-[#1F2937] to-[#111827] shadow-lg border-b border-gray-800">
-                <div className="container mx-auto px-4 py-4">
-                    <div className="flex items-center gap-6">
-                        {/* Website Logo/Name */}
-                        <Link 
-                            href="/" 
-                            className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500 transition-all flex items-center gap-2"
-                        >
-                            <CircuitBoard className="w-6 h-6 text-blue-400" />
-                            <span>BuildMyPC</span>
-                        </Link>
-
-                        {/* Search and Category Selection */}
-                        <div className="flex flex-1 items-center gap-4">
-                            <div className="relative flex-1">
-                                <input
-                                    type="search"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="Search components..."
-                                    className="w-full px-4 py-2 pl-10 rounded-lg bg-[#374151] border border-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                />
-                                <svg 
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                                    fill="none" 
-                                    stroke="currentColor" 
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path 
-                                        strokeLinecap="round" 
-                                        strokeLinejoin="round" 
-                                        strokeWidth={2} 
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+            <div className="container mx-auto px-4">
+                {/* Enhanced Search Section */}
+                <div className="py-6">
+                    <div className="flex flex-col gap-4">
+                        <div className="relative" ref={searchRef}>
+                            {/* Search Input */}
+                            <div className="flex items-center gap-4">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="search"
+                                        value={searchQuery}
+                                        onChange={(e) => handleSearchInput(e.target.value)}
+                                        onFocus={() => setShowSearchDropdown(true)}
+                                        placeholder="Search components..."
+                                        className="w-full px-4 py-3 pl-10 rounded-lg bg-[#374151] border border-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                                     />
-                                </svg>
+                                    <svg 
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path 
+                                            strokeLinecap="round" 
+                                            strokeLinejoin="round" 
+                                            strokeWidth={2} 
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+                                        />
+                                    </svg>
+                                </div>
+                                <CustomSelect
+                                    value={selectedCategory}
+                                    onChange={setSelectedCategory}
+                                    options={categoryOptions}
+                                />
                             </div>
-                            <CustomSelect
-                                value={selectedCategory}
-                                onChange={setSelectedCategory}
-                                options={categoryOptions}
-                            />
+
+                            {/* Search Dropdown */}
+                            {showSearchDropdown && searchQuery && (
+                                <div className="absolute w-full mt-2 bg-[#1F2937] rounded-lg shadow-xl border border-gray-700 z-50">
+                                    {/* Category-specific filters */}
+                                    {selectedCategory !== 'all' && (
+                                        <div className="p-4 border-b border-gray-700">
+                                            <h4 className="text-sm font-medium text-gray-400 mb-2">
+                                                Suggested Filters
+                                            </h4>
+                                            <div className="flex flex-wrap gap-2">
+                                                {getCategoryFilters(selectedCategory as ComponentType).map((filter) => (
+                                                    <button
+                                                        key={filter}
+                                                        className="px-3 py-1 text-sm bg-[#374151] text-gray-300 rounded-full hover:bg-blue-600 hover:text-white transition-colors"
+                                                    >
+                                                        {filter}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Search Suggestions */}
+                                    <div className="max-h-[400px] overflow-y-auto">
+                                        {searchSuggestions.map((suggestion) => (
+                                            <Link
+                                                key={suggestion.id}
+                                                href={`/product-insights/${suggestion.id}`}
+                                                className="flex items-center gap-4 p-4 hover:bg-[#374151] transition-colors"
+                                                onClick={() => setShowSearchDropdown(false)}
+                                            >
+                                                <div className="w-12 h-12 relative flex-shrink-0">
+                                                    <Image
+                                                        src={suggestion.image}
+                                                        alt={suggestion.name}
+                                                        fill
+                                                        className="object-contain"
+                                                    />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h4 className="text-white text-sm font-medium">
+                                                        {suggestion.name}
+                                                    </h4>
+                                                    <p className="text-gray-400 text-xs">
+                                                        {suggestion.category.toUpperCase()}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-white font-medium">
+                                                        ₹{suggestion.price.toLocaleString()}
+                                                    </p>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="container mx-auto px-4">
                 <div className="flex gap-6">
                     {/* Filters Sidebar */}
-                    <div className="w-64 flex-shrink-0">
+                    <aside className="w-64 flex-shrink-0">
                         <div className="sticky top-20 max-h-[calc(100vh-5rem)] overflow-y-auto custom-scrollbar">
                             <div className="space-y-4 pr-4 border-r border-gray-700">
                                 {/* Price Range */}
@@ -302,50 +547,78 @@ export default function BrowsePage() {
                                 </div>
 
                                 {/* Dynamic Filters */}
-                                {Object.entries(dynamicFilters).map(([key, filter]) => (
-                                    <div key={key} className="bg-gradient-to-br from-[#1F2937] to-[#111827] p-4 rounded-lg border border-gray-800">
-                                        <h3 className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 font-medium mb-4">
-                                            {filter.label}
-                                        </h3>
-                                        <div className="space-y-1">
-                                            {filter.options.map(option => (
-                                                <label 
-                                                    key={option.value} 
-                                                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#374151] transition-colors cursor-pointer text-gray-300 group"
+                                {Object.entries(dynamicFilters).map(([key, filter]) => {
+                                    // Skip duplicate type filter if it's already shown in category-specific filters
+                                    if (selectedCategory !== 'all' && key === 'type') return null;
+
+                                    return (
+                                        <div key={key} className="bg-gradient-to-br from-[#1F2937] to-[#111827] p-4 rounded-lg border border-gray-800">
+                                            <button 
+                                                onClick={() => toggleFilter(key)}
+                                                className="w-full flex items-center justify-between text-left"
+                                            >
+                                                <h3 className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 font-medium">
+                                                    {filter.label}
+                                                </h3>
+                                                <svg 
+                                                    className={`w-5 h-5 transition-transform ${
+                                                        collapsedFilters[key] ? 'rotate-180' : ''
+                                                    }`}
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
                                                 >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedFilters[key]?.includes(option.value) || false}
-                                                        onChange={(e) => {
-                                                            setSelectedFilters(prev => {
-                                                                const current = prev[key] || [];
-                                                                return {
-                                                                    ...prev,
-                                                                    [key]: e.target.checked
-                                                                        ? [...current, option.value]
-                                                                        : current.filter(v => v !== option.value)
-                                                                };
-                                                            });
-                                                        }}
-                                                        className="rounded border-gray-600 bg-[#374151] text-blue-500 focus:ring-offset-[#1F2937]"
+                                                    <path 
+                                                        strokeLinecap="round" 
+                                                        strokeLinejoin="round" 
+                                                        strokeWidth={2} 
+                                                        d="M19 9l-7 7-7-7"
                                                     />
-                                                    <span className="text-sm flex-1 group-hover:text-white transition-colors">
-                                                        {option.label}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
-                                                        ({option.count})
-                                                    </span>
-                                                </label>
-                                            ))}
+                                                </svg>
+                                            </button>
+                                            
+                                            <div className={`space-y-1 mt-2 ${
+                                                collapsedFilters[key] ? 'hidden' : ''
+                                            }`}>
+                                                {filter.options.map(option => (
+                                                    <label 
+                                                        key={option.value} 
+                                                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#374151] transition-colors cursor-pointer text-gray-300 group"
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedFilters[key]?.includes(option.value) || false}
+                                                            onChange={(e) => {
+                                                                setSelectedFilters(prev => {
+                                                                    const current = prev[key] || [];
+                                                                    return {
+                                                                        ...prev,
+                                                                        [key]: e.target.checked
+                                                                            ? [...current, option.value]
+                                                                            : current.filter(v => v !== option.value)
+                                                                    };
+                                                                });
+                                                            }}
+                                                            className="rounded border-gray-600 bg-[#374151] text-blue-500 focus:ring-offset-[#1F2937]"
+                                                        />
+                                                        <span className="text-sm flex-1 group-hover:text-white transition-colors">
+                                                            {option.label}
+                                                        </span>
+                                                        <span className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
+                                                            ({option.count})
+                                                        </span>
+                                                    </label>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
-                    </div>
+                    </aside>
 
                     {/* Main Content */}
-                    <div className="flex-1 py-6">
+                    <main className="flex-1">
                         {/* Sort Bar */}
                         <div className="flex justify-between items-center mb-6 bg-gradient-to-r from-[#1F2937] to-[#111827] p-4 rounded-lg border border-gray-800">
                             <p className="text-gray-400">
@@ -453,11 +726,11 @@ export default function BrowsePage() {
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    </main>
                 </div>
             </div>
 
-            {/* PC Builder Button - Fixed at the bottom right */}
+            {/* PC Builder Button */}
             <Link 
                 href="/pcBuilder" 
                 className="fixed bottom-8 right-8 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 flex items-center gap-2 hover:scale-105 transform"
