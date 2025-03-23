@@ -1,67 +1,98 @@
-Phase 1: Core Component Management
-Basic Component Structure
-Define component categories (CPU, GPU, Motherboard, etc.)
-Create base component schema with essential fields
-Set up database structure for components
-Component CRUD Operations
-Build component creation form with validation
-Implement edit functionality
-Add delete with dependency checking
-Create bulk import/export system using CSV/JSON
-Category Management
-Create category hierarchy system
-Implement category-specific attributes
-Add category-based filtering and organization
+Web Crawler for PC Component Prices
 
+1. Overview
 
-Phase 2: Price & Compatibility Systems
-Price Tracking
-Set up price history database structure
-Create price update automation system
-Implement price change notifications
-Add price trend visualization
-Compatibility Engine
-Define compatibility rules for each component type
-Create compatibility checking system
-Implement warning/error messaging
-Add compatibility suggestion system
+This project is a web crawler designed to fetch and compare prices of PC components from multiple e-commerce websites.
 
-Phase 3: Build Analytics
-Build Tracking
-Create build history database
-Implement build success/failure logging
-Add build completion tracking
-Set up build statistics collection
-Component Pairing Analysis
-Track successful component combinations
-Analyze common compatibility issues
-Create popularity metrics for combinations
-Implement recommendation engine
-Popular Builds
-Track most-used configurations
-Analyze build performance metrics
-Create build templates system
-Implement build sharing features
+2. Tech Stack
 
-Phase 4: User Management
-User System
-Set up user authentication
-Create user profiles
-Implement role-based access
-Add user activity tracking
-Build History
-Create personal build library
-Add build saving/loading
-Implement build sharing
-Create build comparison tools
-Phase 5: Inventory Management
-Stock Management
-Create stock level tracking
-Implement low stock alerts
-Add stock history tracking
-Create stock prediction system
-Price Management
-Set up automated price updates
-Create price comparison system
-Implement price alert system
-Add price optimization tools
+Programming Language: Python
+
+Libraries & Tools:
+
+Scrapy (for large-scale scraping)
+
+BeautifulSoup (for parsing HTML)
+
+Selenium / Playwright (for handling dynamic pages)
+
+Requests (for HTTP requests)
+
+SQLite / PostgreSQL / MongoDB (for data storage)
+
+fake_useragent & proxy rotation (for anti-scraping measures)
+
+3. Installation & Setup
+
+Prerequisites
+
+Ensure you have Python installed (preferably 3.8+). Install the required libraries using:
+
+pip install scrapy beautifulsoup4 selenium playwright requests fake_useragent psycopg2 pymongo
+
+Database Setup
+
+SQLite (for local testing):
+
+pip install sqlite
+
+PostgreSQL (for production):
+
+sudo apt install postgresql
+pip install psycopg2
+
+MongoDB (for NoSQL storage):
+
+sudo apt install mongodb
+pip install pymongo
+
+Selenium & Playwright Setup
+
+If using Selenium, install the WebDriver for your browser:
+
+pip install selenium
+
+For Playwright (preferred for better performance):
+
+pip install playwright
+playwright install
+
+4. Running the Web Crawler
+
+For static pages (Scrapy or BeautifulSoup-based scraper):
+
+python static_scraper.py
+
+For dynamic pages (Selenium or Playwright-based scraper):
+
+python dynamic_scraper.py
+
+5. Anti-Scraping Measures
+
+Use fake_useragent to rotate User-Agents.
+
+Implement proxy rotation if necessary.
+
+Introduce delays/random intervals between requests.
+
+6. Automating the Crawler
+
+Use cron (Linux/macOS) or Task Scheduler (Windows) to schedule crawls.
+Example (run every 6 hours):
+
+crontab -e
+0 */6 * * * /usr/bin/python3 /path/to/script.py
+
+7. Storing & Managing Data
+
+Store data in SQLite, PostgreSQL, or MongoDB.
+
+Use an API (Flask / FastAPI) for structured data retrieval.
+
+8. Future Improvements
+
+Add more sites for wider coverage.
+
+Implement machine learning for price trend analysis.
+
+Optimize scraping speed & efficiency.

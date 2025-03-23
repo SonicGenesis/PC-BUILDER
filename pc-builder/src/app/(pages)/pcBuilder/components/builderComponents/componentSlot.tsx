@@ -2,64 +2,75 @@ import Image from 'next/image';
 import { FiX } from 'react-icons/fi';
 import { ComponentType, PCComponent } from '../../types/components';
 import { COMPONENT_DISPLAY_NAMES } from '../../contants/budget';
+import { Draggable } from '@hello-pangea/dnd';
 
 interface ComponentSlotProps {
   type: ComponentType;
   component?: PCComponent;
-  isDraggingOver: boolean;
-  onRemove: () => void;
+  index: number;
+  buildId: string;
+  onRemove: (buildId: string, type: ComponentType) => void;
 }
 
 export const ComponentSlot = ({ 
   type, 
   component, 
-  isDraggingOver,
+  index,
+  buildId,
   onRemove 
 }: ComponentSlotProps) => {
   return (
     <div
       className={`
-        border-2 border-dashed rounded-xl p-4
-        ${isDraggingOver && !component
-          ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
-          : 'border-gray-200 dark:border-gray-700'}
+        border rounded-xl p-4 transition-all
         ${component
-          ? 'border-solid border-green-400 dark:border-green-600'
-          : ''}
+          ? 'border-neon-green neon-glow bg-card-bg'
+          : 'border-dashed border-gray-700 hover:border-neon-green/50'}
       `}
     >
-      <p className="text-sm font-medium mb-2 capitalize">{type}</p>
+      <p className="text-sm font-medium mb-2 text-neon-green neon-text">{COMPONENT_DISPLAY_NAMES[type]}</p>
       {component ? (
-        <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg relative group">
-          <button
-            onClick={onRemove}
-            className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <FiX className="w-4 h-4" />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 relative">
-              <Image
-                src={component.image || '/images/placeholder.jpg'}
-                alt={component.name || ''}
-                fill
-                className="object-contain"
-              />
+        <Draggable draggableId={`${buildId}-${type}`} index={index}>
+          {(provided) => (
+            <div 
+              ref={provided.innerRef}
+              {...provided.draggableProps}
+              {...provided.dragHandleProps}
+              className="bg-dark-bg p-3 rounded-lg relative group border border-neon-green/30"
+            >
+              <button
+                onClick={() => onRemove(buildId, type)}
+                className="absolute -top-2 -right-2 bg-card-bg text-neon-green p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity border border-neon-green neon-glow"
+              >
+                <FiX className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 relative">
+                  <Image
+                    src={component.image || '/images/placeholder.jpg'}
+                    alt={component.name || ''}
+                    fill
+                    className="object-contain rounded"
+                  />
+                </div>
+                <div>
+                  <p className="font-medium text-sm text-white">
+                    {component.name}
+                  </p>
+                  <p className="text-sm text-neon-green">
+                    ${component.price.toLocaleString()}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-sm">
-                {component.name}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                ₹{component.price.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
+          )}
+        </Draggable>
       ) : (
-        <p className="text-sm text-gray-400">
-          Drag and drop a {COMPONENT_DISPLAY_NAMES[type].toLowerCase()} here
-        </p>
+        <div className="h-20 flex items-center justify-center">
+          <p className="text-sm text-gray-400 text-center px-2">
+            Drag and drop a {COMPONENT_DISPLAY_NAMES[type].toLowerCase()} here
+          </p>
+        </div>
       )}
     </div>
   );

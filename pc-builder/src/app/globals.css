@@ -2,19 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-
-
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --neon-green: #00ff41;
+  --neon-green-glow: #00ff4133;
+  --neon-green-bright: #39ff14;
+  --dark-bg: #050505;
+  --card-bg: #111111;
+  --border-glow: 0 0 5px var(--neon-green);
+  --text-glow: 0 0 2px #ffffff, 0 0 5px var(--neon-green);
 }
 
 body {
@@ -22,27 +19,73 @@ body {
   background: var(--background);
 }
 
+/* Neon text effect */
+.neon-text {
+  color: var(--foreground);
+  text-shadow: var(--text-glow);
+}
+
+.neon-green-text {
+  color: var(--neon-green);
+  text-shadow: 0 0 5px var(--neon-green), 0 0 10px var(--neon-green);
+}
+
+.neon-border {
+  border: 1px solid var(--neon-green);
+  box-shadow: var(--border-glow);
+}
+
+.neon-glow {
+  box-shadow: var(--border-glow);
+}
+
+/* Card with neon effect */
+.neon-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--neon-green);
+  box-shadow: var(--border-glow);
+  transition: all 0.3s ease;
+}
+
+.neon-card:hover {
+  box-shadow: 0 0 15px var(--neon-green);
+}
+
+/* Button with neon effect */
+.neon-button {
+  background-color: transparent;
+  color: var(--neon-green);
+  border: 1px solid var(--neon-green);
+  box-shadow: var(--border-glow);
+  transition: all 0.3s ease;
+}
+
+.neon-button:hover {
+  background-color: var(--neon-green-glow);
+  box-shadow: 0 0 15px var(--neon-green);
+}
+
 /* Add these styles */
 .user-select-none {
   user-select: none;
 }
 
-/* Optional: Add custom scrollbar styles */
+/* Custom scrollbar styles with neon theme */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--dark-bg);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #4B5563;
+  background: var(--neon-green);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #6B7280;
+  background: var(--neon-green-bright);
 }
 
 @keyframes slideIn {
@@ -157,4 +200,61 @@ body {
 .animate-wave-3 {
   animation: wave-3 2s cubic-bezier(0, 0, 0.2, 1) infinite;
   animation-delay: 0.4s;
+}
+
+/* Neon flicker animation */
+@keyframes flicker {
+  0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+    opacity: 0.99;
+    text-shadow: 0 0 2px #ffffff, 0 0 5px var(--neon-green), 0 0 15px var(--neon-green);
+  }
+  20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+    opacity: 0.4;
+    text-shadow: none;
+  }
+}
+
+.neon-flicker {
+  animation: flicker 2s infinite alternate;
+}
+
+/* Grid pattern background */
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(to right, rgba(0, 255, 65, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 255, 65, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Neon border with animation for navbar */
+@keyframes borderPulse {
+  0%, 100% {
+    border-color: rgba(0, 255, 65, 0.3);
+    box-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
+  }
+  50% {
+    border-color: rgba(0, 255, 65, 0.7);
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+  }
+}
+
+.neon-border-pulse {
+  border: 1px solid var(--neon-green);
+  box-shadow: 0 0 8px var(--neon-green);
+  animation: borderPulse 3s infinite ease-in-out;
+}
+
+/* Debug styles for sidebar */
+.dashboard-sidebar {
+  position: fixed !important;
+  left: 0 !important;
+  top: 5rem !important;
+  height: calc(100vh - 5rem) !important;
+  width: 16rem !important;
+  z-index: 999 !important;
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  box-shadow: 0 0 30px rgba(57, 255, 20, 0.7) !important;
+  border-right: 2px solid var(--neon-green) !important;
+  overflow-y: auto !important;
+  color: var(--neon-green) !important;
 }

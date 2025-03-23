@@ -1,72 +1,26 @@
 "use client";
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { graphicsCards } from '../../../../data/PC.GRAPHICCARDS';
-import { motherboards } from '../../../../data/PC.MOTHERBOARDS';
-import { processors } from '../../../../data/PC.PROCESSORS';
-import { ramModules } from '../../../../data/PC.RAM';
 import { Slider } from '@/app/components/Slider';
 import { Star, ArrowUpDown, Cpu, MonitorPlay, CircuitBoard, HardDrive, Heart } from 'lucide-react';
 import { CustomSelect } from '@/app/components/CustomSelect';
 import Link from 'next/link';
 import { useFavorites } from '@/store/useFavorites';
 
-// Add this type definition near the top with other types
-type ComponentType = 'gpu' | 'cpu' | 'motherboard' | 'ram';
-
-// Define strict types for components
-type BaseComponent = {
-  id: string;
-  name: string;
-  price: number;
-  company: string;
-  image: string;
-  category: string;
-  rating: number;
-  reviews: number;
-  seller: string;
-  availability: string;
-  type: ComponentType;
-};
-
-type GPUComponent = BaseComponent & {
-  category: 'gpu';
-  vram: string;
-  brand: string;
-  model: string;
-};
-
-type CPUComponent = BaseComponent & {
-  category: 'cpu';
-  cores: number;
-  threads: number;
-  base_clock: string;
-  turbo_clock: string;
-  description: string;
-};
-
-type RAMComponent = BaseComponent & {
-  category: 'ram';
-  type: string;
-  capacity: string;
-  speed: string;
-};
-
-type MotherboardComponent = BaseComponent & {
-  category: 'motherboard';
-  socket: string;
-  formFactor: string;
-  integration: string;
-};
-
-// Define a type for mapped components
-type MappedComponent = (GPUComponent | CPUComponent | RAMComponent | MotherboardComponent) & {
-  rating: number;
-  reviews: number;
-  seller: string;
-  availability: string;
-  type: ComponentType;
-};
+// Import API services
+import { componentService, ComponentBase, SearchParams } from '@/api/components';
+import { 
+  MappedComponent, 
+  ComponentType,
+  BaseComponent,
+  GPUComponent, 
+  CPUComponent, 
+  RAMComponent, 
+  MotherboardComponent,
+  SearchSuggestion,
+  mapComponentData,
+  mapSearchSuggestion
+} from '@/api/mappers';
 
 // Types for dynamic filters
 type FilterOption = {
@@ -80,15 +34,6 @@ type DynamicFilters = {
     label: string;
     options: FilterOption[];
   };
-};
-
-// Add new types for search suggestions
-type SearchSuggestion = {
-    id: string;
-    name: string;
-    category: ComponentType;
-    image: string;
-    price: number;
 };
 
 // Add this type for category-specific filters
@@ -113,65 +58,94 @@ export default function BrowsePage() {
     const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
     const [isMounted, setIsMounted] = useState(false);
     const [collapsedFilters, setCollapsedFilters] = useState<Record<string, boolean>>({});
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [allComponents, setAllComponents] = useState<MappedComponent[]>([]);
 
     // 2. All useRef hooks
     const searchRef = useRef<HTMLDivElement>(null);
 
-    // 3. All useMemo hooks
-    const allComponents = useMemo(() => {
-        const gpuComponents: MappedComponent[] = graphicsCards.map(item => ({
-            ...item,
-            category: 'gpu' as const,
-            type: 'gpu',
-            rating: 4.5,
-            reviews: 128,
-            seller: "Amazon",
-            availability: "In Stock",
-            image: item.image || '/images/placeholder.jpg',
-            brand: item.brand || item.company,
-            model: item.model || 'Standard'
-        }));
-
-        const cpuComponents: MappedComponent[] = processors.map(item => ({
-            ...item,
-            category: 'cpu' as const,
-            type: 'cpu',
-            rating: 4.3,
-            reviews: 95,
-            seller: "Newegg",
-            availability: "In Stock",
-            image: item.image || '/images/placeholder.jpg'
-        }));
-
-        const mbComponents: MappedComponent[] = motherboards.map(item => ({
-            ...item,
-            category: 'motherboard' as const,
-            type: 'motherboard',
-            rating: 4.2,
-            reviews: 76,
-            seller: "Amazon",
-            availability: "Limited Stock",
-            image: item.image || '/images/placeholder.jpg'
-        }));
-
-        const ramComponents: MappedComponent[] = ramModules.map(item => ({
-            ...item,
-            category: 'ram' as const,
-            type: 'ram',
-            rating: 4.4,
-            reviews: 112,
-            seller: "Newegg",
-            availability: "In Stock",
-            image: item.image || '/images/placeholder.jpg'
-        }));
-
-        return [...gpuComponents, ...cpuComponents, ...mbComponents, ...ramComponents];
+    // Function to fetch all components
+    const fetchAllComponents = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        
+        try {
+            // Define component types to fetch
+            const types = ['CPU', 'GPU', 'Motherboard', 'RAM'];
+            
+            // Create an array of promises for parallel fetching
+            const promises = types.map(type => 
+                componentService.getAllByType<ComponentBase[]>(type, {
+                    limit: '100', // Fetch up to 100 items per type
+                    page: '1'
+                })
+            );
+            
+            // Wait for all requests to complete
+            const responses = await Promise.all(promises);
+            
+            // Process and map all components
+            const components: MappedComponent[] = responses.flatMap(response => 
+                (response.data || []).map(mapComponentData)
+            );
+            
+            setAllComponents(components);
+        } catch (err) {
+            console.error('Error fetching components:', err);
+            setError('Failed to load components. Please try again later.');
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+    
+    // Function to fetch components by category
+    const fetchComponentsByCategory = useCallback(async (category: string) => {
+        if (category === 'all') {
+            await fetchAllComponents();
+            return;
+        }
+        
+        setIsLoading(true);
+        setError(null);
+        
+        try {
+            // Convert UI category to API component type
+            const componentType = category === 'cpu' ? 'CPU' 
+                : category === 'gpu' ? 'GPU'
+                : category === 'motherboard' ? 'Motherboard'
+                : 'RAM';
+                
+            const response = await componentService.getAllByType<ComponentBase[]>(componentType, {
+                limit: '100',
+                page: '1'
+            });
+            
+            const components = (response.data || []).map(mapComponentData);
+            setAllComponents(components);
+        } catch (err) {
+            console.error(`Error fetching ${category} components:`, err);
+            setError(`Failed to load ${category} components. Please try again later.`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [fetchAllComponents]);
 
     // 4. All useEffect hooks
     useEffect(() => {
         setIsMounted(true);
     }, []);
+
+    // Add effect to fetch components on mount and category change
+    useEffect(() => {
+        if (isMounted) {
+            if (selectedCategory === 'all') {
+                fetchAllComponents();
+            } else {
+                fetchComponentsByCategory(selectedCategory);
+            }
+        }
+    }, [isMounted, selectedCategory, fetchAllComponents, fetchComponentsByCategory]);
 
     useEffect(() => {
         const filters: DynamicFilters = {};
@@ -334,21 +308,56 @@ export default function BrowsePage() {
     const handleSearchInput = (value: string) => {
         setSearchQuery(value);
         if (value.length > 0) {
-            const suggestions = allComponents
-                .filter(comp => 
-                    comp.name.toLowerCase().includes(value.toLowerCase()) ||
-                    comp.company.toLowerCase().includes(value.toLowerCase())
-                )
-                .slice(0, 5)
-                .map(comp => ({
-                    id: comp.id,
-                    name: comp.name,
-                    category: comp.type,
-                    image: comp.image,
-                    price: comp.price
-                }));
-            setSearchSuggestions(suggestions);
-            setShowSearchDropdown(true);
+            // Basic filtering for short queries (less than 3 chars)
+            if (value.length < 3) {
+                const suggestions = allComponents
+                    .filter(comp => 
+                        comp.name.toLowerCase().includes(value.toLowerCase()) ||
+                        comp.company.toLowerCase().includes(value.toLowerCase())
+                    )
+                    .slice(0, 5)
+                    .map(comp => ({
+                        id: comp.id,
+                        name: comp.name,
+                        category: comp.type,
+                        image: comp.image,
+                        price: comp.price
+                    }));
+                setSearchSuggestions(suggestions);
+                setShowSearchDropdown(true);
+            } else {
+                // Use AI search for longer queries
+                setIsLoading(true);
+                componentService.searchWithAI<ComponentBase[]>(value)
+                    .then(response => {
+                        const suggestions = (response.data || [])
+                            .slice(0, 5)
+                            .map(mapSearchSuggestion);
+                        setSearchSuggestions(suggestions);
+                        setShowSearchDropdown(true);
+                    })
+                    .catch(err => {
+                        console.error('Search error:', err);
+                        // Fallback to local filtering on error
+                        const suggestions = allComponents
+                            .filter(comp => 
+                                comp.name.toLowerCase().includes(value.toLowerCase()) ||
+                                comp.company.toLowerCase().includes(value.toLowerCase())
+                            )
+                            .slice(0, 5)
+                            .map(comp => ({
+                                id: comp.id,
+                                name: comp.name,
+                                category: comp.type,
+                                image: comp.image,
+                                price: comp.price
+                            }));
+                        setSearchSuggestions(suggestions);
+                    })
+                    .finally(() => {
+                        setIsLoading(false);
+                    });
+            }
         } else {
             setShowSearchDropdown(false);
         }
@@ -639,92 +648,144 @@ export default function BrowsePage() {
 
                         {/* Component List */}
                         <div className="space-y-4">
-                            {filteredComponents.map((component) => (
-                                <div
-                                    key={component.id}
-                                    className="bg-gradient-to-r from-[#1F2937] to-[#111827] rounded-lg shadow-lg hover:shadow-xl transition-all p-4 border border-gray-800 group"
-                                >
-                                    <div className="flex gap-4">
-                                        {/* Image and Basic Info - Clickable */}
-                                        <Link 
-                                            href={`/product-insights/${component.id}`}
-                                            className="flex gap-4 flex-1"
-                                        >
-                                            {/* Image */}
-                                            <div className="w-32 h-32 relative flex-shrink-0">
-                                                <Image
-                                                    src={component.image || '/images/placeholder.jpg'}
-                                                    alt={component.name}
-                                                    fill
-                                                    className="object-contain"
-                                                />
-                                            </div>
-
-                                            {/* Details */}
+                            {isLoading ? (
+                                // Show loading skeletons while components are being fetched
+                                Array.from({ length: 5 }).map((_, index) => (
+                                    <div
+                                        key={`skeleton-${index}`}
+                                        className="bg-gradient-to-r from-[#1F2937] to-[#111827] rounded-lg shadow-lg p-4 border border-gray-800 animate-pulse"
+                                    >
+                                        <div className="flex gap-4">
+                                            {/* Skeleton Image */}
+                                            <div className="w-32 h-32 bg-gray-700 rounded-lg"></div>
+                                            
+                                            {/* Skeleton Content */}
                                             <div className="flex-1 flex justify-between">
-                                                <div>
-                                                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">{component.name}</h3>
-                                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                                        {component.company}
-                                                    </p>
-                                                    
-                                                    {/* Quick Specs */}
-                                                    <div className="space-y-1">
-                                                        {'vram' in component && (
-                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                                <span className="text-gray-500">VRAM:</span> {component.vram}
-                                                            </p>
-                                                        )}
-                                                        {'cores' in component && (
-                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                                <span className="text-gray-500">Cores/Threads:</span> {component.cores}/{component.threads}
-                                                            </p>
-                                                        )}
-                                                        {'capacity' in component && (
-                                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                                <span className="text-gray-500">Capacity:</span> {component.capacity}
-                                                            </p>
-                                                        )}
-                                                    </div>
+                                                <div className="space-y-2">
+                                                    <div className="h-6 bg-gray-700 rounded w-64"></div>
+                                                    <div className="h-4 bg-gray-700 rounded w-40"></div>
+                                                    <div className="h-4 bg-gray-700 rounded w-24 mt-4"></div>
+                                                    <div className="h-4 bg-gray-700 rounded w-32"></div>
                                                 </div>
-
-                                                <div className="flex flex-col items-end justify-between">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="text-right">
-                                                            <p className="text-xl font-bold text-gray-900 dark:text-white">₹{component.price.toLocaleString()}</p>
-                                                            <p className="text-sm text-gray-500">{component.availability}</p>
-                                                        </div>
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                toggleFavorite(component);
-                                                            }}
-                                                            className={`p-2 rounded-lg transition-colors ${
-                                                                isComponentFavorite(component.id) 
-                                                                    ? 'text-red-500 bg-red-50 dark:bg-red-900/20' 
-                                                                    : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
-                                                            }`}
-                                                        >
-                                                            <Heart 
-                                                                className={`w-5 h-5 ${
-                                                                    isComponentFavorite(component.id) ? 'fill-current' : ''
-                                                                }`} 
-                                                            />
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                                                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                                                        <span>{component.rating}</span>
-                                                        <span>•</span>
-                                                        <span>{component.reviews} reviews</span>
-                                                    </div>
+                                                <div className="flex flex-col items-end">
+                                                    <div className="h-6 bg-gray-700 rounded w-24"></div>
+                                                    <div className="h-4 bg-gray-700 rounded w-20 mt-1"></div>
+                                                    <div className="h-4 bg-gray-700 rounded w-32 mt-auto"></div>
                                                 </div>
                                             </div>
-                                        </Link>
+                                        </div>
                                     </div>
+                                ))
+                            ) : filteredComponents.length === 0 ? (
+                                // Show no results message
+                                <div className="bg-gradient-to-r from-[#1F2937] to-[#111827] rounded-lg p-10 border border-gray-800 text-center">
+                                    <div className="text-4xl mb-4">😕</div>
+                                    <h3 className="text-xl font-medium text-white mb-2">No components found</h3>
+                                    <p className="text-gray-400 mb-4">
+                                        Try adjusting your filters or search query to find what you're looking for.
+                                    </p>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedCategory('all');
+                                            setSearchQuery('');
+                                            setPriceRange([0, 200000]);
+                                            setSelectedFilters({});
+                                            fetchAllComponents();
+                                        }}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                    >
+                                        Reset Filters
+                                    </button>
                                 </div>
-                            ))}
+                            ) : (
+                                // Regular component list
+                                filteredComponents.map((component) => (
+                                    <div
+                                        key={component.id}
+                                        className="bg-gradient-to-r from-[#1F2937] to-[#111827] rounded-lg shadow-lg hover:shadow-xl transition-all p-4 border border-gray-800 group"
+                                    >
+                                        <div className="flex gap-4">
+                                            {/* Image and Basic Info - Clickable */}
+                                            <Link 
+                                                href={`/product-insights/${component.id}`}
+                                                className="flex gap-4 flex-1"
+                                            >
+                                                {/* Image */}
+                                                <div className="w-32 h-32 relative flex-shrink-0">
+                                                    <Image
+                                                        src={component.image || '/images/placeholder.jpg'}
+                                                        alt={component.name}
+                                                        fill
+                                                        className="object-contain"
+                                                    />
+                                                </div>
+
+                                                {/* Details */}
+                                                <div className="flex-1 flex justify-between">
+                                                    <div>
+                                                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">{component.name}</h3>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                                                            {component.company}
+                                                        </p>
+                                                        
+                                                        {/* Quick Specs */}
+                                                        <div className="space-y-1">
+                                                            {'vram' in component && (
+                                                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                    <span className="text-gray-500">VRAM:</span> {component.vram}
+                                                                </p>
+                                                            )}
+                                                            {'cores' in component && (
+                                                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                    <span className="text-gray-500">Cores/Threads:</span> {component.cores}/{component.threads}
+                                                                </p>
+                                                            )}
+                                                            {'capacity' in component && (
+                                                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                                    <span className="text-gray-500">Capacity:</span> {component.capacity}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col items-end justify-between">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="text-right">
+                                                                <p className="text-xl font-bold text-gray-900 dark:text-white">₹{component.price.toLocaleString()}</p>
+                                                                <p className="text-sm text-gray-500">{component.availability}</p>
+                                                            </div>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    toggleFavorite(component);
+                                                                }}
+                                                                className={`p-2 rounded-lg transition-colors ${
+                                                                    isComponentFavorite(component.id) 
+                                                                        ? 'text-red-500 bg-red-50 dark:bg-red-900/20' 
+                                                                        : 'text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                                                }`}
+                                                            >
+                                                                <Heart 
+                                                                    className={`w-5 h-5 ${
+                                                                        isComponentFavorite(component.id) ? 'fill-current' : ''
+                                                                    }`} 
+                                                                />
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                                                            <span>{component.rating}</span>
+                                                            <span>•</span>
+                                                            <span>{component.reviews} reviews</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </main>
                 </div>
