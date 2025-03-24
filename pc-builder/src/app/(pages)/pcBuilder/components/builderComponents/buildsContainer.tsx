@@ -143,7 +143,7 @@ export const BuildsContainer = ({
                     <div
                       {...provided.droppableProps}
                       ref={provided.innerRef}
-                      className="space-y-4"
+                      className="space-y-4 "
                     >
                       {['cpu', 'motherboard', 'ram', 'gpu'].map((type) => (
                         <ComponentSlot

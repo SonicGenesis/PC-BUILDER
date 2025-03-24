@@ -22,7 +22,7 @@ export const ComponentSlot = ({
   return (
     <div
       className={`
-        border rounded-xl p-4 transition-all
+        border rounded-xl p-4 transition-all w-full
         ${component
           ? 'border-neon-green neon-glow bg-card-bg'
           : 'border-dashed border-gray-700 hover:border-neon-green/50'}

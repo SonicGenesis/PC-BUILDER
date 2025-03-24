@@ -42,7 +42,7 @@ export const BuildCard = ({
   return (
     <div
       key={build.id}
-      className="neon-card bg-card-bg rounded-xl p-6 min-w-[350px] relative z-0 overflow-visible"
+      className="neon-card bg-card-bg rounded-xl p-6 w-[400px] relative z-0 overflow-visible"
     >
       <CompatibilityTree nodes={checkCompatibility(build)} build={build} />
 
@@ -116,7 +116,7 @@ export const BuildCard = ({
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className="flex flex-wrap gap-4"
+              className="flex flex-wrap gap-4 "
             >
               {['gpu', 'cpu', 'motherboard', 'ram'].map((type, index) => (
                 <ComponentSlot
