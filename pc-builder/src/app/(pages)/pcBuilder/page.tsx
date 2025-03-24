@@ -391,7 +391,7 @@ export default function PcBuilderScreen() {
   const [isQuickVaultVisible, setIsQuickVaultVisible] = useState(true);
 
   return (
-    <div className="min-h-screen w-full pt-20 pb-16 bg-[#111827]">
+    <div className="min-h-screen w-full pt-20 pb-16 bg-black">
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-6 px-6 pt-4 relative">
           {/* Sidebar Container - Now only contains Component Library */}
@@ -465,7 +465,7 @@ export default function PcBuilderScreen() {
                   <p className="text-sm mt-1">Components you favorite will appear here</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="">
                   <BuilderSidenavFavorites 
                     favorites={favorites}
                     toggleFavorite={toggleFavorite}

@@ -55,7 +55,7 @@ export const BuildCard = ({
               onChange={(e) => onEditName(build.id, e.target.value)}
               onBlur={onSaveName}
               onKeyPress={(e) => e.key === 'Enter' && onSaveName()}
-              className="text-xl font-bold bg-transparent border-b border-neon-green focus:outline-none focus:border-neon-green text-white"
+              className="text-xl font-bold bg-transparent border-b-2 border-neon-green focus:outline-none focus:border-neon-green text-white px-2 py-1 shadow-[0_2px_8px_rgba(0,255,65,0.5)] neon-text"
               autoFocus
             />
           ) : (
@@ -87,7 +87,7 @@ export const BuildCard = ({
                   onChange={(e) => onBudgetChange(parseFloat(e.target.value))}
                   onBlur={onSaveBudget}
                   onKeyPress={(e) => e.key === 'Enter' && onSaveBudget()}
-                  className="w-24 p-1 bg-transparent border border-neon-green rounded text-white text-sm"
+                  className="w-24 p-1 bg-transparent border-2 border-neon-green rounded text-white text-sm shadow-[0_0_8px_rgba(0,255,65,0.5)] neon-text"
                   autoFocus
                 />
               </div>
@@ -97,7 +97,7 @@ export const BuildCard = ({
                 onClick={() => onEditBudget(build.id, build.budget)}
               >
                 <span className="text-neon-green font-semibold neon-text">
-                  ${build.budget.toLocaleString()}
+                  ₹{build.budget.toLocaleString()}
                 </span>
                 <FiEdit2 className="w-3 h-3 ml-1 text-neon-green" />
               </div>
@@ -106,7 +106,7 @@ export const BuildCard = ({
           <div className="flex flex-col items-end">
             <span className="text-white text-xs">Current Total:</span>
             <span className={`text-sm font-bold ${calculateBuildPrice(build) > build.budget ? 'text-red-400' : 'text-neon-green neon-text'}`}>
-              ${calculateBuildPrice(build).toLocaleString()}
+              ₹{calculateBuildPrice(build).toLocaleString()}
             </span>
           </div>
         </div>
