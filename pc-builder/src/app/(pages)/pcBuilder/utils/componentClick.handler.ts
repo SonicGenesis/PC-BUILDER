@@ -57,7 +57,7 @@ export const handleComponentClick = ({
       message: `${component.name} added to ${build.name}`
     });
   };
-
+ 
   if (builds.length === 1) {
     handleReplacement(builds[0]);
     return;
